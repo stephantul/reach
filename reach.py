@@ -8,7 +8,7 @@ class Reach(object):
     """
     A class for working with pre-made vector representions of words.
 
-    Based on Gensim.
+    Based on Gensim word2vec class.
     """
 
     def __init__(self, pathtovector, header=True, verbose=True):

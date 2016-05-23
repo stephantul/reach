@@ -5,6 +5,12 @@ Useful for input into neural networks, or for doing compositional semantics.
 
 `reach` can read in word vectors in `word2vec` or `glove` format without any preprocessing.
 
+The assumption behind `reach` is a no-hassle approach to featurization. The vectorization and bow approaches know how to deal with OOV words, removing these problems from your code.
+
+Similarly, `reach` contains `OOV` and `PAD` vectors, removing the necessity of accounting for this in your own code.
+
+`reach` also includes nearest neighbour calculation for arbitrary vectors, allowing you to experiment with compositional operators.
+
 ### Example
 
 ```python
@@ -24,12 +30,12 @@ vector = r['cat']
 similarity = r.similarity('cat', 'dog')
 
 # Find most similar.
-similarities = r.most_similar('cat')
+similarities = r.most_similar('cat', 5)
 
 sentence = 'a dog is the best creature alive'.split()
 corpus = [sentence, sentence, sentence]
 
-# bow representation for input into neural network. 
+# bow representation, consistent with word vectors, for input into neural network.
 bow = r.bow(sentence)
 
 # vectorized representation.
