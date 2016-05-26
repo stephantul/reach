@@ -150,21 +150,25 @@ class Reach(object):
         :param num: the number of most similar items to return.
         :return a list of most similar items.
         """
-        return self.calc_sim(self[w], num)
+        return self._calc_sim(self[w], num)[1:num+1]
 
-    def calc_sim(self, vector, num=10):
+    def nearest_neighbor(self, vector, num=10):
+
+        return self._calc_sim(vector, num)[:num]
+
+    def _calc_sim(self, vector):
         """
         Calculates the most similar words to a given vector.
         Useful for pre-computed means and sums of vectors.
 
         :param vector: the vector for which to return the most similar items.
         :param num: the number of most similar items to return.
-        :return: a list of most similar items.
+        :return: a list of tuples, representing most similar items.
         """
         vector = self.normalize(vector)
-        distances = np.argsort(-np.dot(self.norm_vectors, vector))[:num]
+        distances = np.dot(self.norm_vectors, vector)
 
-        return [self._indices[sim] for sim in distances]
+        return [(self._indices[idx], distances[idx]) for idx in np.argsort(-distances)]
 
     @staticmethod
     def normalize(vector):
