@@ -8,7 +8,7 @@ class Reach(object):
     """
     A class for working with pre-made vector representions of words.
 
-    Based on Gensim word2vec class.
+    Partially based on Gensim word2vec class.
     """
 
     def __init__(self, pathtovector, header=True, verbose=True):
@@ -34,12 +34,10 @@ class Reach(object):
             size = len(firstline.split()[1:])
             numlines = sum([1 for x in open(pathtovector, encoding='utf-8')])
 
-        vectors = np.zeros((numlines+3, size), dtype=np.float32)
+        vectors = np.zeros((numlines+2, size), dtype=np.float32)
         words = {u"UNK": 0, u"PAD": 1}
 
-        increm = 1 if header else 2
-
-        print(size, numlines)
+        print("Vocab: {0}, Dim: {1}".format(size, numlines))
 
         for idx, line in enumerate(open(pathtovector, encoding='utf-8')):
 
@@ -53,16 +51,15 @@ class Reach(object):
                                                                  len(line)))
                 continue
 
-            words[line[0]] = idx+increm
-            vectors[idx+increm] = list(map(np.float, line[1:]))
+            words[line[0]] = len(words)
+            vectors[words[line[0]]] = list(map(np.float, line[1:]))
 
         self.size = size
-        self.vectors = np.array(vectors).astype(np.float32)
 
-        # Stolen from gensim
-        self.norm_vectors = (self.vectors /
-                             np.sqrt((self.vectors ** 2).sum(-1))
-                             [..., np.newaxis]).astype(np.float32)
+        norm_vectors = [self.normalize(v) for v in vectors]
+
+        self.vectors = np.array(vectors).astype(np.float32)
+        self.norm_vectors = np.array(norm_vectors).astype(np.float32)
 
         self._words = words
         self._indices = {v: k for k, v in self._words.items()}
@@ -150,11 +147,11 @@ class Reach(object):
         :param num: the number of most similar items to return.
         :return a list of most similar items.
         """
-        return self._calc_sim(self[w], num)[1:num+1]
+        return self._calc_sim(self[w])[1:num+1]
 
     def nearest_neighbor(self, vector, num=10):
 
-        return self._calc_sim(vector, num)[:num]
+        return self._calc_sim(vector)[:num]
 
     def _calc_sim(self, vector):
         """
@@ -178,6 +175,9 @@ class Reach(object):
         :param vector: a numpy array or list to normalize.
         :return a normalized vector.
         """
+        if not vector.any():
+            return vector
+
         return vector / np.sqrt(sum(np.power(vector, 2)))
 
     def similarity(self, w1, w2):
