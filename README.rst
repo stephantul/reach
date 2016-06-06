@@ -53,4 +53,4 @@ Example
   vectorized = r.vectorize(sentence, remove_oov=True)
 
   # vectorize corpus.
-  transformed = r.vectorize(corpus)
+  transformed = r.transform(corpus)
