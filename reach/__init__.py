@@ -1,4 +1,4 @@
 from __future__ import absolute_import
-from reach import reach
+from reach.reach import Reach
 
 __all__ = ['reach']

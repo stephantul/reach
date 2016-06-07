@@ -189,7 +189,7 @@ class Reach(object):
         :param w2: the second word.
         :return: a similarity score between 1 and 0.
         """
-        return self.normalize(self[w1]).dot(self.normalize(self[w2].T))
+        return self.norm_vectors[self._words[w1]].dot(self.norm_vectors[self._words[w2]])
 
 if __name__ == "__main__":
 
