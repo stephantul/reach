@@ -114,13 +114,15 @@ class Reach(object):
         """
         Vectorizes a sentence.
 
-        :param tokens: a list of tokens
+        :param tokens: a string or list of tokens
         :return: a vectorized sentence, where every word has been replaced by
         its vector, and OOV words are replaced
         by the zero vector.
         """
         if not tokens:
             return [self._zero]
+        if not hasattr(tokens, '__iter__'):
+            tokens = tokens.split()
 
         if remove_oov:
             return [self.vector(t) for t in tokens if t in self._words]
