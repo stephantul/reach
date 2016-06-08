@@ -2,6 +2,62 @@ import logging
 import numpy as np
 
 from io import open
+from collections import Counter
+
+
+class Spreach(object):
+    """
+    Sparse variant of Reach.
+
+    Parameters
+    ----------
+    pathtovector : str
+        System path to vector file location.
+
+    header : bool, optional, default True
+        Indicates if first line should be skipped.
+
+    Attributes
+    ----------
+    vecd : dict
+        Sparse dictionary representation of word embedding matrix where key
+        is a vocab word and value a dictionary with indices and values.
+    """
+
+    def __init__(self, pathtovector, header=True):
+        """Load file, pop header if necessary."""
+        self.vecd = {}
+        self._load(open(pathtovector, encoding='utf-8'), header)
+
+    def _load(self, vecf, header):
+        """Load data to vec dictionary."""
+        for i, line in enumerate(vecf):
+            if not i and header:
+                continue
+            row = line.split()
+            key = row.pop(0)
+            self.vecd[key] = {str(i): k for i, k in enumerate(row) if k}
+        vecf.close()
+
+    def transform(self, tokens):
+        """Transform string or list of tokens to vectors.
+
+        Parameters
+        ----------
+        tokens : str or list of strings
+            Tokens that will be looked up in the vocab for their embedding.
+
+        Returns
+        -------
+        c : dict
+            Sparse vector summed across words.
+        """
+        if not hasattr(tokens, '__iter__'):
+            tokens = tokens.split()
+        c = Counter()
+        for token in tokens:
+            c += Counter(self.vecd[token])
+        return dict(c)
 
 
 class Reach(object):
