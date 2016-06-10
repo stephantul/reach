@@ -102,7 +102,7 @@ class Reach(object):
         vectors = np.zeros((numlines+2, size), dtype=np.float32)
         words = {u"UNK": 0, u"PAD": 1}
 
-        print("Vocab: {0}, Dim: {1}".format(size, numlines))
+        print("Vocab: {0}, Dim: {1}".format(numlines, size))
 
         for idx, line in enumerate(open(pathtovector, encoding='utf-8')):
 
