@@ -1,7 +1,72 @@
 import logging
+import json
 import numpy as np
 
+from collections import Counter
 from io import open
+from os import path
+
+
+class Spreach(object):
+    """
+    Sparse variant of Reach. Usable when word embeddings have been transformed
+    into a sparse space with e.g. https://github.com/mfaruqui/sparse-coding.
+
+    Parameters
+    ----------
+    vecp : str
+        System path to vector file location.
+
+    header : bool, optional, default True
+        Indicates if first line should be skipped.
+
+    Attributes
+    ----------
+    vecd : dict
+        Sparse dictionary representation of word embedding matrix where key
+        is a vocab word and value a dictionary with indices and values.
+    """
+
+    def __init__(self, vecp, header=True):
+        """Load file, pop header if necessary."""
+        self.vecd = {}
+        jsf = vecp.replace('.txt', '.json')
+        if not path.isfile(jsf):
+            self._load(open(vecp, encoding='utf-8'), header)
+            json.dump(self.vecd, open(jsf, 'w'))
+        else:
+            self.vecd = json.load(open(jsf))
+
+    def _load(self, vecf, header):
+        """Load data to vec dictionary."""
+        for i, line in enumerate(vecf):
+            if not i and header:
+                continue
+            row = line.split()
+            key = row.pop(0)
+            self.vecd[key] = {str(i): float(k) for i, k in
+                              enumerate(row) if float(k)}
+        vecf.close()
+
+    def transform(self, tokens):
+        """Transform string or list of tokens to vectors.
+
+        Parameters
+        ----------
+        tokens : str or list of strings
+            Tokens that will be looked up in the vocab for their embedding.
+
+        Returns
+        -------
+        c : dict
+            Sparse vector summed across words.
+        """
+        if isinstance(tokens, str):
+            tokens = tokens.split()
+        c = Counter()
+        for token in tokens:
+            c += Counter(self.vecd.get(token, {'OOV': 0.01}))
+        return dict(c)
 
 
 class Reach(object):
@@ -121,7 +186,7 @@ class Reach(object):
         """
         if not tokens:
             return [self._zero]
-        if not hasattr(tokens, '__iter__'):
+        if isinstance(tokens, str):
             tokens = tokens.split()
 
         if remove_oov:
