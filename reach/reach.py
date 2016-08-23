@@ -76,19 +76,44 @@ class Reach(object):
     Partially based on Gensim word2vec class.
     """
 
-    def __init__(self, pathtovector, header=True, verbose=True):
+    def __init__(self, vectors, words, verbose=False):
         r"""
-        A class for working with vector representations of tokens.
+        A class for working with vector representations of words.
 
-        It will not take into account lines which are longer than
-        vectorsize + 1 when split on space.
+        :param vectors: a numpy array containing word representations
+        :param words: a list of words, corresponding to the above word representations
+        :param verbose: whether to use logging.INFO to show information about Reach.
+        """
+
+        norm_vectors = [self.normalize(v) for v in vectors]
+
+        self.words = {w: idx for idx, w in enumerate(words)}
+        self.indices = {v: k for k, v in self.words.items()}
+
+        self.vectors = vectors
+        self.norm_vectors = np.array(norm_vectors).astype(np.float32)
+
+        self.size = vectors.shape[1]
+
+        self._verbose = verbose
+        self._zero = np.zeros((self.size,))
+
+    @staticmethod
+    def load(pathtovector, header=True, verbose=False):
+        """
+        Reads a file in word2vec vector format.
+
+        The load function will not take into account lines which are longer
+        than vectorsize + 1 when split on space.
         Can cause problems if tokens like \n are assigned separate vectors,
         or the file includes vectors that include spaces.
 
         :param pathtovector: the path to the vector file.
         :param header: whether the vector file has a header of the type
         (NUMBER OF ITEMS, SIZE OF VECTOR).
+        :param verbose: whether to make the resulting Reach verbose.
         """
+
         # open correctly.
         firstline = open(pathtovector, encoding='utf-8').readline().strip()
 
@@ -100,7 +125,7 @@ class Reach(object):
             numlines = sum([1 for x in open(pathtovector, encoding='utf-8')])
 
         vectors = np.zeros((numlines+2, size), dtype=np.float32)
-        words = {u"UNK": 0, u"PAD": 1}
+        words = [u"UNK", u"PAD"]
 
         print("Vocab: {0}, Dim: {1}".format(numlines, size))
 
@@ -116,20 +141,12 @@ class Reach(object):
                                                                  len(line)))
                 continue
 
-            words[line[0]] = len(words)
-            vectors[words[line[0]]] = list(map(np.float, line[1:]))
+            words.append(line[0])
+            vectors[len(words)-1] = list(map(np.float, line[1:]))
 
-        self.size = size
+        vectors = np.array(vectors).astype(np.float32)
 
-        norm_vectors = [self.normalize(v) for v in vectors]
-
-        self.vectors = np.array(vectors).astype(np.float32)
-        self.norm_vectors = np.array(norm_vectors).astype(np.float32)
-
-        self._words = words
-        self._indices = {v: k for k, v in self._words.items()}
-        self._verbose = verbose
-        self._zero = np.zeros((self.size,))
+        return Reach(vectors, words, verbose)
 
     def vector(self, w):
         """
@@ -140,7 +157,7 @@ class Reach(object):
         otherwise.
         """
         try:
-            return self.vectors[self._words[w]]
+            return self.vectors[self.words[w]]
         except KeyError:
             if self._verbose:
                 logging.info("{0} was OOV".format(w))
@@ -148,7 +165,7 @@ class Reach(object):
 
     def __getitem__(self, word):
 
-        return self.vectors[self._words[word]]
+        return self.vectors[self.words[word]]
 
     def bow(self, tokens, remove_oov=False):
         """
@@ -165,11 +182,11 @@ class Reach(object):
         temp = []
 
         if remove_oov:
-            tokens = [x for x in tokens if x in self._words]
+            tokens = [x for x in tokens if x in self.words]
 
         for t in tokens:
             try:
-                temp.append(self._words[t])
+                temp.append(self.words[t])
             except KeyError:
                 temp.append(0)
 
@@ -190,7 +207,7 @@ class Reach(object):
             tokens = tokens.split()
 
         if remove_oov:
-            return [self.vector(t) for t in tokens if t in self._words]
+            return [self.vector(t) for t in tokens if t in self.words]
         else:
             return [self.vector(t) for t in tokens]
 
@@ -232,7 +249,7 @@ class Reach(object):
         vector = self.normalize(vector)
         distances = np.dot(self.norm_vectors, vector)
 
-        return [(self._indices[idx], distances[idx]) for idx in np.argsort(-distances)]
+        return [(self.indices[idx], distances[idx]) for idx in np.argsort(-distances)]
 
     @staticmethod
     def normalize(vector):
@@ -256,7 +273,7 @@ class Reach(object):
         :param w2: the second word.
         :return: a similarity score between 1 and 0.
         """
-        return self.norm_vectors[self._words[w1]].dot(self.norm_vectors[self._words[w2]])
+        return self.norm_vectors[self.words[w1]].dot(self.norm_vectors[self.words[w2]])
 
 if __name__ == "__main__":
 

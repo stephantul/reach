@@ -22,13 +22,24 @@ Example
 
 .. code-block:: python
 
-  from reach import Reach.
+  import numpy as np
+
+  from reach import Reach
+
 
   # Word2vec style: with header.
-  r = Reach("path/to/embeddings", header=True)
+  r = Reach.load("path/to/embeddings", header=True)
 
   # Glove style: without header.
-  r = Reach("path/to/embeddings", header=False)
+  r = Reach.load("path/to/embeddings", header=False)
+
+  # Alternatively, if you have a matrix, you can directly
+  # input it.
+
+  # Stand-in for word embeddings
+  mtr = np.zeros((2, 300))
+  words = {'cat': 1, 'dog': 2}
+  r = Reach(mtr, words)
 
   # Get vectors through indexing.
   # Throws a KeyError is a word is not present.
