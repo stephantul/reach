@@ -1,10 +1,13 @@
 import logging
 import json
 import numpy as np
+import os
 
 from collections import Counter
 from io import open
 from os import path
+
+logger = logging.getLogger(__name__)
 
 
 class Spreach(object):
@@ -72,12 +75,10 @@ class Spreach(object):
 class Reach(object):
     """
     A class for working with pre-made vector representions of words.
-
-    Partially based on Gensim word2vec class.
     """
 
-    def __init__(self, vectors, words, verbose=False):
-        r"""
+    def __init__(self, vectors, words, verbose=False, name=""):
+        """
         A class for working with vector representations of words.
 
         :param vectors: a numpy array containing word representations
@@ -85,21 +86,23 @@ class Reach(object):
         :param verbose: whether to use logging.INFO to show information about Reach.
         """
 
-        norm_vectors = [self.normalize(v) for v in vectors]
+        # norm_vectors = [self.normalize(v) for v in vectors]
 
         self.words = {w: idx for idx, w in enumerate(words)}
         self.indices = {v: k for k, v in self.words.items()}
 
         self.vectors = vectors
-        self.norm_vectors = np.array(norm_vectors).astype(np.float32)
+        self.norm_vectors = np.nan_to_num(vectors[2:] / np.sqrt(np.sum(np.square(vectors[2:]), axis=1))[:, np.newaxis])
+        self.norm_vectors = np.vstack([self.vectors[:2], self.norm_vectors])
 
         self.size = vectors.shape[1]
 
         self._verbose = verbose
-        self._zero = np.zeros((self.size,))
+        self.zero = np.zeros((self.size,))
+        self.name = name
 
     @staticmethod
-    def load(pathtovector, header=True, verbose=False):
+    def load(pathtovector, header=True, verbose=False, unkword="UNK", padword="PAD"):
         """
         Reads a file in word2vec vector format.
 
@@ -112,7 +115,12 @@ class Reach(object):
         :param header: whether the vector file has a header of the type
         (NUMBER OF ITEMS, SIZE OF VECTOR).
         :param verbose: whether to make the resulting Reach verbose.
+        :param unkword: the glyph to use as unknown word. Defaults to UNK
+        :param padword: the glyph to use as padding word. Defaults to PAD
         """
+
+        if unkword == padword:
+            raise ValueError("The unkown and padding glyphs have the same form.")
 
         # open correctly.
         firstline = open(pathtovector, encoding='utf-8').readline().strip()
@@ -125,9 +133,10 @@ class Reach(object):
             numlines = sum([1 for x in open(pathtovector, encoding='utf-8')])
 
         vectors = np.zeros((numlines+2, size), dtype=np.float32)
-        words = [u"UNK", u"PAD"]
+        words = [unkword, padword]
 
-        print("Vocab: {0}, Dim: {1}".format(numlines, size))
+        logger.info("Loading {0}".format(pathtovector))
+        logger.info("Vocab: {0}, Dim: {1}".format(numlines, size))
 
         for idx, line in enumerate(open(pathtovector, encoding='utf-8')):
 
@@ -136,17 +145,22 @@ class Reach(object):
 
             line = line.split()
             if len(line) != size + 1:
-                print("wrong input at idx: {0}, {1}, {2}".format(idx,
-                                                                 line[:-size],
-                                                                 len(line)))
+                logger.error("wrong input at idx: {0}, {1}, {2}".format(idx,
+                                                                        line[:-size],
+                                                                        len(line)))
                 continue
 
             words.append(line[0])
             vectors[len(words)-1] = list(map(np.float, line[1:]))
 
+        if len(words) != len(set(words)):
+            raise ValueError("The words contain duplicates, are your pad or unknown glyphs in the vocabulary of your vector space?")
+
         vectors = np.array(vectors).astype(np.float32)
 
-        return Reach(vectors, words, verbose)
+        logger.info("Loading finished")
+
+        return Reach(vectors, words, verbose, name=os.path.split(pathtovector)[-1])
 
     def vector(self, w):
         """
@@ -160,8 +174,20 @@ class Reach(object):
             return self.vectors[self.words[w]]
         except KeyError:
             if self._verbose:
-                logging.info("{0} was OOV".format(w))
-            return self.vectors[0]
+                logging.debug("{0} was OOV".format(w))
+            return self.zero
+
+    def _calc_sim(self, vector):
+        """
+        Calculates the most similar words to a given vector.
+        Useful for pre-computed means and sums of vectors.
+        :param vector: the vector for which to return the most similar items.
+        :return: a list of tuples, representing most similar items.
+        """
+
+        vector = self.normalize(vector)
+        distances = np.dot(self.norm_vectors, vector)
+        return [(self.indices[idx], distances[idx]) for idx in np.argsort(-distances)]
 
     def __getitem__(self, word):
 
@@ -202,7 +228,7 @@ class Reach(object):
         by the zero vector.
         """
         if not tokens:
-            return [self._zero]
+            return [self.zero]
         if isinstance(tokens, str):
             tokens = tokens.split()
 
@@ -231,25 +257,49 @@ class Reach(object):
         :param num: the number of most similar items to return.
         :return a list of most similar items.
         """
-        return self._calc_sim(self[w])[1:num+1]
+        return self._calc_sim(self[w])[1:num + 1]
+
+    def _get_normed(self, word):
+
+        return self.norm_vectors[self.words[word]]
+
+    def most_similar_batch(self, words, num=10, batch_size=100):
+        """
+        A batched version of the
+
+        :param words: A list of words for which to return the n most similar items
+        :param num: The number of most similar items to return.
+        :param batch_size: The batch size to use.
+        :return: A list of list of tuples, representing the most similar items
+        """
+        vectors = np.array([self._get_normed(w) for w in words])
+
+        results = []
+
+        # Single transpose, makes things faster.
+        normed_transpose = self.norm_vectors.T
+
+        for i in range(0, len(vectors), batch_size):
+
+            distances = vectors[i: i+batch_size].dot(normed_transpose)
+            lines = np.argsort(-distances)
+            for lidx, line in enumerate(lines):
+                results.append([(self.indices[idx], distances[lidx, idx]) for idx in line[1:num+1]])
+
+        return results
 
     def nearest_neighbor(self, vector, num=10):
+        """
+        Finds the nearest neighbors to some vector.
 
+        :param vector: The vector to find nearest neighbors to.
+        :param num: The number of nearest neighbors to return.
+        :return A list of tuples representing the words and their distances
+        to the given vector.
+        """
+
+        vector = np.array(vector)
         return self._calc_sim(vector)[:num]
-
-    def _calc_sim(self, vector):
-        """
-        Calculates the most similar words to a given vector.
-        Useful for pre-computed means and sums of vectors.
-
-        :param vector: the vector for which to return the most similar items.
-        :param num: the number of most similar items to return.
-        :return: a list of tuples, representing most similar items.
-        """
-        vector = self.normalize(vector)
-        distances = np.dot(self.norm_vectors, vector)
-
-        return [(self.indices[idx], distances[idx]) for idx in np.argsort(-distances)]
 
     @staticmethod
     def normalize(vector):
@@ -262,7 +312,7 @@ class Reach(object):
         if not vector.any():
             return vector
 
-        return vector / np.sqrt(sum(np.power(vector, 2)))
+        return vector / np.linalg.norm(vector)
 
     def similarity(self, w1, w2):
         """
@@ -274,6 +324,38 @@ class Reach(object):
         :return: a similarity score between 1 and 0.
         """
         return self.norm_vectors[self.words[w1]].dot(self.norm_vectors[self.words[w2]])
+
+    def save(self, path, write_header=True, unk_word="UNK", pad_word="PAD"):
+        """
+        Saves the current vector space in word2vec format.
+        Note that UNK and PAD are not written to file, as these are technically
+        not part of the vector space.
+
+        :param path: The path to which to save the file.
+        :param write_header: Whether to write a header.
+        :return: None
+        """
+
+        with open(path, 'w') as f:
+            # header
+
+            decrement = int(unk_word in self.words)
+            decrement += int(pad_word in self.words)
+
+            if write_header:
+                f.write(u"{0} {1}\n".format(unicode(self.vectors.shape[0] - decrement), unicode(self.vectors.shape[1])))
+
+            for i in range(len(self.words)):
+
+                w = self.indices[i]
+
+                if w in [unk_word, pad_word]:
+                    continue
+
+                vec = self.vectors[i]
+
+                f.write(u"{0} {1}\n".format(w, " ".join([str(x) for x in vec])))
+
 
 if __name__ == "__main__":
 
