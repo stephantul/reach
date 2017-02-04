@@ -174,7 +174,7 @@ class Reach(object):
             return self.vectors[self.words[w]]
         except KeyError:
             if self._verbose:
-                logging.debug("{0} was OOV".format(w))
+                logging.info("{0} was OOV".format(w))
             return self.zero
 
     def _calc_sim(self, vector):
@@ -223,9 +223,9 @@ class Reach(object):
         Vectorizes a sentence.
 
         :param tokens: a string or list of tokens
+        :param remove_oov: whether to remove OOV words. If False, OOV words are replaced by the zero vector.
         :return: a vectorized sentence, where every word has been replaced by
-        its vector, and OOV words are replaced
-        by the zero vector.
+        its vector. OOv words are either removed or replaced by zeros or a vector average.
         """
         if not tokens:
             return [self.zero]
@@ -260,6 +260,12 @@ class Reach(object):
         return self._calc_sim(self[w])[1:num + 1]
 
     def _get_normed(self, word):
+        """
+        Get the normed version of a word vector.
+
+        :param word: The word for which to retrieve the normed version.
+        :return: A normed vector.
+        """
 
         return self.norm_vectors[self.words[word]]
 
@@ -333,6 +339,8 @@ class Reach(object):
 
         :param path: The path to which to save the file.
         :param write_header: Whether to write a header.
+        :param unk_word: the unknown glyph in the current vector space (if any)
+        :param pad_word: the padding glyph in the current vector space (if any)
         :return: None
         """
 
