@@ -343,7 +343,7 @@ class Reach(object):
             decrement += int(pad_word in self.words)
 
             if write_header:
-                f.write(u"{0} {1}\n".format(unicode(self.vectors.shape[0] - decrement), unicode(self.vectors.shape[1])))
+                f.write(u"{0} {1}\n".format(str(self.vectors.shape[0] - decrement), str(self.vectors.shape[1])))
 
             for i in range(len(self.words)):
 
