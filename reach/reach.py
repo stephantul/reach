@@ -92,8 +92,11 @@ class Reach(object):
         self.indices = {v: k for k, v in self.words.items()}
 
         self.vectors = vectors
-        self.norm_vectors = np.nan_to_num(vectors[2:] / np.sqrt(np.sum(np.square(vectors[2:]), axis=1))[:, np.newaxis])
-        self.norm_vectors = np.vstack([self.vectors[:2], self.norm_vectors])
+
+        norm = np.sqrt(np.sum(np.square(self.vectors), axis=1))
+        nonzero = norm > 0
+        self.norm_vectors = np.zeros_like(self.vectors)
+        self.norm_vectors[nonzero] = self.vectors[nonzero] / norm[nonzero, np.newaxis]
 
         self.size = vectors.shape[1]
 
