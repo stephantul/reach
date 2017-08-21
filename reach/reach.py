@@ -95,8 +95,11 @@ class Reach(object):
 
         norm = np.sqrt(np.sum(np.square(self.vectors), axis=1))
         nonzero = norm > 0
-        self.norm_vectors = np.zeros_like(self.vectors)
-        self.norm_vectors[nonzero] = self.vectors[nonzero] / norm[nonzero, np.newaxis]
+        self.norm_vectors = np.zeros_like(self.vectors, dtype=np.float32)
+
+        n = norm[nonzero]
+        p = self.vectors[nonzero]
+        self.norm_vectors[nonzero] = p / n[:, None]
 
         self.size = vectors.shape[1]
 
@@ -154,7 +157,7 @@ class Reach(object):
                 continue
 
             words.append(line[0])
-            vectors[len(words)-1] = list(map(np.float, line[1:]))
+            vectors[len(words)-1] = np.array(list(map(np.float32, line[1:])), dtype=np.float32)
 
         if len(words) != len(set(words)):
             raise ValueError("The words contain duplicates, are your pad or unknown glyphs in the vocabulary of your vector space?")
@@ -281,7 +284,7 @@ class Reach(object):
         :param batch_size: The batch size to use.
         :return: A list of list of tuples, representing the most similar items
         """
-        vectors = np.array([self._get_normed(w) for w in words])
+        vectors = np.asarray([self._get_normed(w) for w in words], dtype=np.float32)
 
         results = []
 
