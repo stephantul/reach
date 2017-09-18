@@ -38,7 +38,7 @@ Example
 
   # Stand-in for word embeddings
   mtr = np.zeros((2, 300))
-  words = {'cat': 1, 'dog': 2}
+  words = ["cat", "dog"]
   r = Reach(mtr, words)
 
   # Get vectors through indexing.

@@ -370,7 +370,7 @@ class Reach(object):
             lines = np.argsort(-distances)
             for lidx, line in enumerate(lines):
                 yield [(self.indices[idx], distances[lidx, idx])
-                       for idx in line[1: num + 1]]
+                       for idx in line[:num]]
 
     def nearest_neighbor(self, vector, num=10):
         """
