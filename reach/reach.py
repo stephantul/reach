@@ -300,7 +300,7 @@ class Reach(object):
             try:
                 yield self.words[t]
             except KeyError:
-                if not self.unk_index:
+                if self.unk_index is None:
                     raise ValueError("You supplied OOV words but didn't supply"
                                      "the index of the replacement glyph. "
                                      "Either set remove_oov to True, or set "
