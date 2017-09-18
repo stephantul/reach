@@ -163,21 +163,20 @@ class Reach(object):
             An initialized Reach instance.
 
         """
-        firstline = open(pathtovector, encoding='utf-8').readline().strip()
-
-        if header:
-            numlines, size = firstline.split()
-            size, numlines = int(size), int(numlines)
-        else:
-            size = len(firstline.split()[1:])
-            numlines = sum([1 for x in open(pathtovector, encoding='utf-8')])
-
-        vectors = np.zeros((numlines, size), dtype=np.float32)
+        vectors = []
         addedwords = set()
         words = []
 
         logger.info("Loading {0}".format(pathtovector))
-        logger.info("Vocab: {0}, Dim: {1}".format(numlines, size))
+
+        firstline = open(pathtovector).readline()
+        if header:
+            num, size = firstline.split()
+            num, size = int(num), int(size)
+            logger.info("Vector space: {} by {}".format(num, size))
+        else:
+            size = len(firstline.split()) - 1
+            logger.info("Vector space: {} dim, # words unknown".format(size))
 
         for idx, line in enumerate(open(pathtovector, encoding='utf-8')):
 
@@ -186,11 +185,9 @@ class Reach(object):
 
             line = line.split()
             if len(line) != size + 1:
-                logger.error("wrong input at idx: {0}, {1}"
-                             "{2}".format(idx,
-                                          line[:-size],
-                                          len(line)))
-                continue
+                raise ValueError("Incorrect input at index {}, size "
+                                 "is {}, expected "
+                                 "{}".format(idx, len(line), size))
 
             if line[0] in addedwords:
                 raise ValueError("Duplicate: {} was in the "
@@ -198,7 +195,7 @@ class Reach(object):
 
             words.append(line[0])
             addedwords.add(line[0])
-            vectors[len(words)-1] = list(map(np.float32, line[1:]))
+            vectors.append([float(x) for x in line[1:]])
 
         vectors = np.array(vectors).astype(np.float32)
 
