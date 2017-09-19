@@ -6,6 +6,7 @@ import os
 from collections import Counter
 from io import open
 from os import path
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -328,7 +329,7 @@ class Reach(object):
         """
         return [self.vectorize(s, remove_oov=remove_oov) for s in corpus]
 
-    def most_similar(self, words, num=10, batch_size=100):
+    def most_similar(self, words, num=10, batch_size=100, show_progressbar=False):
         """
         Return the num most similar words to a given list of words.
 
@@ -352,24 +353,24 @@ class Reach(object):
         if isinstance(words, str):
             words = [words]
         x = np.stack([self[w] for w in words])
-        return [x[1:] for x in self._batch(x, batch_size, num+1)]
+        return [x[1:] for x in self._batch(x, batch_size, num+1, show_progressbar)]
 
-    def _batch(self, vectors, batch_size, num):
+    def _batch(self, vectors, batch_size, num, show_progressbar):
         """Batched cosine distance."""
         vectors = self.normalize(vectors)
 
         # Single transpose, makes things faster.
         normed_transpose = self.norm_vectors.T
 
-        for i in range(0, len(vectors), batch_size):
+        for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
 
             distances = vectors[i: i+batch_size].dot(normed_transpose)
-            lines = np.argsort(-distances)
-            for lidx, line in enumerate(lines):
+            for lidx, dist in enumerate(distances):
+                sorted_indices = np.argsort(-dist)
                 yield [(self.indices[idx], distances[lidx, idx])
-                       for idx in line[:num]]
+                       for idx in sorted_indices[:num]]
 
-    def nearest_neighbor(self, vector, num=10):
+    def nearest_neighbor(self, vectors, batch_size=100, num=10, show_progressbar=False):
         """
         Find the nearest neighbors to some arbitrary vector.
 
@@ -395,8 +396,8 @@ class Reach(object):
             in the form of (NAME, DISTANCE) tuples.
 
         """
-        vector = np.array(vector)
-        return list(self._batch(vector, batch_size=1, num=10))
+        vectors = np.array(vectors)
+        return list(self._batch(vectors, batch_size, num, show_progressbar))
 
     @staticmethod
     def normalize(vectors):
