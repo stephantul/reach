@@ -188,7 +188,7 @@ class Reach(object):
             if len(line) != size + 1:
                 raise ValueError("Incorrect input at index {}, size "
                                  "is {}, expected "
-                                 "{}".format(idx, len(line), size))
+                                 "{}".format(idx, len(line)-1, size))
 
             if line[0] in addedwords:
                 raise ValueError("Duplicate: {} was in the "
