@@ -1,3 +1,4 @@
+"""A class for working with vector representations."""
 import logging
 import json
 import numpy as np
@@ -135,14 +136,12 @@ class Reach(object):
         self.name = name
 
     @staticmethod
-    def load(pathtovector, header=True, unk_index=None):
+    def load(pathtovector, header=True, unk_index=None, wordlist=()):
         r"""
         Read a file in word2vec .txt format.
 
-        The load function will not take into account lines which are longer
-        than vectorsize + 1 when split on space.
-        Can cause problems if tokens like \n are assigned separate vectors,
-        or if the file includes words which have spaces.
+        The load function will raise a ValueError when trying to load items
+        which do not conform to line lengths.
 
         Parameters
         ----------
@@ -155,6 +154,9 @@ class Reach(object):
             The index of your unknown glyph. If this is set to None, your reach
             can't assing a BOW index to unknown words, and will throw an error
             whenever you try to do so.
+        wordlist : iterable, optional, default None
+            A list of words you want loaded from the vector file. If this is
+            None (default), all words will be loaded.
 
         Returns
         -------
@@ -165,6 +167,11 @@ class Reach(object):
         vectors = []
         addedwords = set()
         words = []
+
+        try:
+            wordlist = set(wordlist)
+        except ValueError:
+            wordlist = set()
 
         logger.info("Loading {0}".format(pathtovector))
 
@@ -183,14 +190,18 @@ class Reach(object):
                 continue
 
             line = line.rstrip(" \n").split(" ")
-            if len(line) != size + 1:
-                raise ValueError("Incorrect input at index {}, size "
-                                 "is {}, expected "
-                                 "{}".format(idx, len(line)-1, size))
+
+            if wordlist and line[0] not in wordlist:
+                continue
 
             if line[0] in addedwords:
                 raise ValueError("Duplicate: {} was in the "
                                  "vector space twice".format(line[0]))
+
+            if len(line) != size + 1:
+                raise ValueError("Incorrect input at index {}, size "
+                                 "is {}, expected "
+                                 "{}".format(idx, len(line)-1, size))
 
             words.append(line[0])
             addedwords.add(line[0])
@@ -199,6 +210,11 @@ class Reach(object):
         vectors = np.array(vectors).astype(np.float32)
 
         logger.info("Loading finished")
+        if wordlist:
+            diff = wordlist - addedwords
+            if diff:
+                logger.info("Not all words from your wordlist were in your "
+                            "vector space: {}.".format(diff))
 
         return Reach(vectors,
                      words,
@@ -331,7 +347,11 @@ class Reach(object):
         """
         return [self.vectorize(s, remove_oov=remove_oov) for s in corpus]
 
-    def most_similar(self, words, num=10, batch_size=100, show_progressbar=False):
+    def most_similar(self,
+                     words,
+                     num=10,
+                     batch_size=100,
+                     show_progressbar=False):
         """
         Return the num most similar words to a given list of words.
 
@@ -355,7 +375,10 @@ class Reach(object):
         if isinstance(words, str):
             words = [words]
         x = np.stack([self[w] for w in words])
-        return [x[1:] for x in self._batch(x, batch_size, num+1, show_progressbar)]
+        return [x[1:] for x in self._batch(x,
+                                           batch_size,
+                                           num+1,
+                                           show_progressbar)]
 
     def _batch(self, vectors, batch_size, num, show_progressbar):
         """Batched cosine distance."""
@@ -364,7 +387,8 @@ class Reach(object):
         # Single transpose, makes things faster.
         normed_transpose = self.norm_vectors.T
 
-        for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
+        for i in tqdm(range(0, len(vectors), batch_size),
+                      disable=not show_progressbar):
 
             distances = vectors[i: i+batch_size].dot(normed_transpose)
             for lidx, dist in enumerate(distances):
@@ -372,7 +396,11 @@ class Reach(object):
                 yield [(self.indices[idx], distances[lidx, idx])
                        for idx in sorted_indices[:num]]
 
-    def nearest_neighbor(self, vectors, batch_size=100, num=10, show_progressbar=False):
+    def nearest_neighbor(self,
+                         vectors,
+                         batch_size=100,
+                         num=10,
+                         show_progressbar=False):
         """
         Find the nearest neighbors to some arbitrary vector.
 
