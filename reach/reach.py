@@ -132,8 +132,6 @@ class Reach(object):
         self.unk_index = unk_index
 
         self.size = vectors.shape[1]
-
-        self.zero = np.zeros((self.size,))
         self.name = name
 
     @staticmethod
@@ -234,11 +232,15 @@ class Reach(object):
             logging.info("{0} was OOV".format(w))
             if self.unk_index:
                 return self.vectors[self.unk_index]
-            return self.zero
+            return self._zero()
 
     def __getitem__(self, word):
         """Get the vector for a single word."""
         return self.vectors[self.words[word]]
+
+    def _zero(self):
+        """Get a zero vector."""
+        return np.zeros((self.size,))
 
     def vectorize(self, tokens, remove_oov=False):
         """
@@ -262,7 +264,7 @@ class Reach(object):
 
         """
         if not tokens:
-            return np.copy(self.zero)[None, :]
+            return np.copy(self._zero())[None, :]
         if isinstance(tokens, str):
             tokens = tokens.split()
 
