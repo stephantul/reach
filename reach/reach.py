@@ -136,7 +136,11 @@ class Reach(object):
         self.name = name
 
     @staticmethod
-    def load(pathtovector, header=True, unk_index=None, wordlist=()):
+    def load(pathtovector,
+             header=True,
+             unk_index=None,
+             wordlist=(),
+             num_to_load=None):
         r"""
         Read a file in word2vec .txt format.
 
@@ -154,9 +158,13 @@ class Reach(object):
             The index of your unknown glyph. If this is set to None, your reach
             can't assing a BOW index to unknown words, and will throw an error
             whenever you try to do so.
-        wordlist : iterable, optional, default None
+        wordlist : iterable, optional, default ()
             A list of words you want loaded from the vector file. If this is
             None (default), all words will be loaded.
+        num_to_load : int, optional, default None
+            The number of words to load from the file. Because loading can take
+            some time, it is sometimes useful to onlyl load the first n words
+            from a vector file for quick inspection.
 
         Returns
         -------
@@ -206,6 +214,9 @@ class Reach(object):
             words.append(line[0])
             addedwords.add(line[0])
             vectors.append([float(x) for x in line[1:]])
+
+            if num_to_load is not None and num_to_load <= len(addedwords):
+                break
 
         vectors = np.array(vectors).astype(np.float32)
 
