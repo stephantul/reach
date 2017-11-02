@@ -184,7 +184,7 @@ class Reach(object):
             if header and idx == 0:
                 continue
 
-            line = line.split()
+            line = line.rstrip(" \n").split(" ")
             if len(line) != size + 1:
                 raise ValueError("Incorrect input at index {}, size "
                                  "is {}, expected "
