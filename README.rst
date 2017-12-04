@@ -11,9 +11,6 @@ The assumption behind ``reach`` is a no-hassle approach to featurization. The
 vectorization and bow approaches know how to deal with OOV words, removing
 these problems from your code.
 
-Similarly, ``reach`` contains ``OOV`` and ``PAD`` vectors, removing the
-necessity of accounting for this in your own code.
-
 ``reach`` also includes nearest neighbour calculation for arbitrary vectors,
 allowing you to experiment with compositional operators.
 
@@ -42,7 +39,7 @@ Example
   r = Reach(mtr, words)
 
   # Get vectors through indexing.
-  # Throws a KeyError is a word is not present.
+  # Throws a KeyError if a word is not present.
   vector = r['cat']
 
   # Compare two words.
@@ -54,7 +51,8 @@ Example
   sentence = 'a dog is the best creature alive'.split()
   corpus = [sentence, sentence, sentence]
 
-  # bow representation, consistent with word vectors, for input into neural network.
+  # bow representation consistent with word vectors,
+  # for input into neural network.
   bow = r.bow(sentence)
 
   # vectorized representation.
