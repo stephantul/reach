@@ -215,7 +215,7 @@ class Reach(object):
             addedwords.add(line[0])
             vectors.append([float(x) for x in line[1:]])
 
-            if num_to_load is not None and num_to_load <= len(addedwords):
+            if num_to_load is not None and len(addedwords) >= num_to_load:
                 break
 
         vectors = np.array(vectors).astype(np.float32)
@@ -257,7 +257,7 @@ class Reach(object):
             return self.vectors[self.words[w]]
         except KeyError:
             logging.info("{0} was OOV".format(w))
-            if self.unk_index:
+            if self.unk_index is not None:
                 return self.vectors[self.unk_index]
             return self._zero()
 
