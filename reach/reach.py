@@ -129,7 +129,7 @@ class Reach(object):
         self.indices = {v: k for k, v in self.words.items()}
 
         self.vectors = np.asarray(vectors)
-        self.norm_vectors = self.normalize(vectors)
+        self.norm_vectors = self.normalize(self.vectors)
         self.unk_index = unk_index
 
         self.size = vectors.shape[1]
@@ -404,6 +404,7 @@ class Reach(object):
             in the form of (NAME, DISTANCE) tuples.
 
         """
+        # TODO: fix this, breaks when using tuples as words.
         if isinstance(words, str):
             words = [words]
         x = np.stack([self[w] for w in words])
@@ -498,6 +499,35 @@ class Reach(object):
         """
         vec = self.norm_vectors[self.words[w1]]
         return vec.dot(self.norm_vectors[self.words[w2]])
+
+    def compose(self, sentences, f1, f2, weights, remove_oov=True):
+        """
+        Complicated composition function.
+
+        Parameters
+        ----------
+        sentences : nested lists of items
+            The sentences to compose over. The function requires that
+
+
+        """
+        def _compose(vectors, function, weight):
+            """Sub function for composition."""
+            vectors *= weight[:, None]
+            return function(vectors, axis=0)
+
+        if len(sentences != 1) and len(weights) != len(sentences):
+            raise ValueError("The number of weights must be equal to the "
+                             "number of sentences or equal to 1.")
+
+        composed = []
+
+        for sent, weight in zip(sentences):
+            vec = self.vectorize(sent, remove_oov=remove_oov)
+            composed.append(_compose(vec, f1, weight))
+
+        return _compose(np.asarray(composed), f2, np.ones(len(composed)))
+
 
     def prune(self, wordlist):
         """
