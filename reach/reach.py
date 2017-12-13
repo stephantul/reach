@@ -128,7 +128,7 @@ class Reach(object):
         self.words = {w: idx for idx, w in enumerate(words)}
         self.indices = {v: k for k, v in self.words.items()}
 
-        self.vectors = vectors
+        self.vectors = np.asarray(vectors)
         self.norm_vectors = self.normalize(vectors)
         self.unk_index = unk_index
 
@@ -140,7 +140,8 @@ class Reach(object):
              header=True,
              unk_index=None,
              wordlist=(),
-             num_to_load=None):
+             num_to_load=None,
+             truncate_embeddings=None):
         r"""
         Read a file in word2vec .txt format.
 
@@ -165,6 +166,9 @@ class Reach(object):
             The number of words to load from the file. Because loading can take
             some time, it is sometimes useful to onlyl load the first n words
             from a vector file for quick inspection.
+        truncate_embeddings : int, optional, default None
+            If this value is not None, the vectors in the vector space will
+            be truncated to the number of dimensions indicated by this value.
 
         Returns
         -------
@@ -172,6 +176,23 @@ class Reach(object):
             An initialized Reach instance.
 
         """
+        vectors, words = Reach._load(pathtovector,
+                                     header,
+                                     wordlist,
+                                     num_to_load,
+                                     truncate_embeddings)
+        return Reach(vectors,
+                     words,
+                     name=os.path.split(pathtovector)[-1],
+                     unk_index=unk_index)
+
+    @staticmethod
+    def _load(pathtovector,
+              header=True,
+              wordlist=(),
+              num_to_load=None,
+              truncate_embeddings=None):
+        """Load a matrix and wordlist from a .vec file."""
         vectors = []
         addedwords = set()
         words = []
@@ -191,6 +212,9 @@ class Reach(object):
         else:
             size = len(firstline.split()) - 1
             logger.info("Vector space: {} dim, # words unknown".format(size))
+
+        if truncate_embeddings is None or truncate_embeddings == 0:
+            truncate_embeddings = size
 
         for idx, line in enumerate(open(pathtovector, encoding='utf-8')):
 
@@ -213,7 +237,7 @@ class Reach(object):
 
             words.append(line[0])
             addedwords.add(line[0])
-            vectors.append([float(x) for x in line[1:]])
+            vectors.append([float(x) for x in line[1:truncate_embeddings+1]])
 
             if num_to_load is not None and len(addedwords) >= num_to_load:
                 break
@@ -227,10 +251,7 @@ class Reach(object):
                 logger.info("Not all words from your wordlist were in your "
                             "vector space: {}.".format(diff))
 
-        return Reach(vectors,
-                     words,
-                     name=os.path.split(pathtovector)[-1],
-                     unk_index=unk_index)
+        return vectors, words
 
     def _vector(self, w, norm=False):
         """
@@ -477,6 +498,34 @@ class Reach(object):
         """
         vec = self.norm_vectors[self.words[w1]]
         return vec.dot(self.norm_vectors[self.words[w2]])
+
+    def prune(self, wordlist):
+        """
+        Prune the current reach instance by removing words.
+
+        Can be helpful if you don't have the vector space loaded on disk, or
+        if you want to perform random sampling on the vector space in
+        memory.
+
+        Parameters
+        ----------
+        wordlist : list of str
+            A list of words to keep.
+
+        """
+        # Remove duplicates
+        wordlist = set(wordlist)
+        indices = [self.words[w] for w in wordlist]
+        if self.unk_index is not None and self.unk_index not in indices:
+            raise ValueError("Your unknown word is not in your wordlist. "
+                             "Set it to None before pruning, or pass your "
+                             "unknown word.")
+        self.vectors = self.vectors[indices]
+        self.norm_vectors = self.norm_vectors[indices]
+        self.words = {w: idx for idx, w in enumerate(wordlist)}
+        self.indices = {v: k for k, v in self.words.items()}
+        if self.unk_index is not None:
+            self.unk_index = self.words[wordlist[self.unk_index]]
 
     def save(self, path, write_header=True):
         """
