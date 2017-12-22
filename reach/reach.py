@@ -132,7 +132,7 @@ class Reach(object):
         self.norm_vectors = self.normalize(self.vectors)
         self.unk_index = unk_index
 
-        self.size = vectors.shape[1]
+        self.size = self.vectors.shape[1]
         self.name = name
 
     @staticmethod
@@ -221,23 +221,23 @@ class Reach(object):
             if header and idx == 0:
                 continue
 
-            line = line.rstrip(" \n").split(" ")
+            word, rest = line.rstrip(" \n").split(" ", 1)
 
-            if wordlist and line[0] not in wordlist:
+            if wordlist and word not in wordlist:
                 continue
 
-            if line[0] in addedwords:
+            if word in addedwords:
                 raise ValueError("Duplicate: {} was in the "
                                  "vector space twice".format(line[0]))
 
-            if len(line) != size + 1:
+            if len(rest.split()) != size:
                 raise ValueError("Incorrect input at index {}, size "
                                  "is {}, expected "
-                                 "{}".format(idx, len(line)-1, size))
+                                 "{}".format(idx, len(rest.split()), size))
 
-            words.append(line[0])
-            addedwords.add(line[0])
-            vectors.append([float(x) for x in line[1:truncate_embeddings+1]])
+            words.append(word)
+            addedwords.add(word)
+            vectors.append(np.fromstring(rest, sep=" ")[:truncate_embeddings])
 
             if num_to_load is not None and len(addedwords) >= num_to_load:
                 break
@@ -500,15 +500,81 @@ class Reach(object):
         vec = self.norm_vectors[self.words[w1]]
         return vec.dot(self.norm_vectors[self.words[w2]])
 
-    def compose(self, sentences, f1, f2, weights, remove_oov=True):
+    def weighted_compose(self,
+                         sentences,
+                         f1,
+                         f2,
+                         weight_dict,
+                         default_value=1.0,
+                         remove_oov=True):
+        """
+        Compose words using a dictionary filled with weights.
+
+        Useful for Tf-idf weighted composition.
+
+        Parameters
+        ----------
+        sentences : nested list of items
+            The sentences to compose over.
+        f1 : function
+            The first composition function.
+        f2 : function
+            The second composition function.
+        weight_dict : dict
+            A dictionary with mappings to assign to words.
+            The values in this dictionary are first all made positive, and
+            are then scaled between 0 and 1.
+        default_value : float, optional, default 1.0
+            The default value to assign to words not in the dictionary.
+        remove_oov : bool, optional, default True
+
+        Returns
+        -------
+        v : np.array
+            Vector of a dimensionality equal to the number of dimensions of
+            the items in this vector space.
+
+        """
+        min_val = np.abs(min(weight_dict.values()))
+        max_val = max(weight_dict.values()) + min_val
+        weight_dict = {k: (v + min_val) / max_val
+                       for k, v in weight_dict.items()}
+
+        weights = []
+        for s in sentences:
+            weights.append([weight_dict.get(w, default_value) for w in s])
+
+        return self.compose(sentences,
+                            f1,
+                            f2,
+                            weights=weights,
+                            remove_oov=remove_oov)
+
+    def compose(self, sentences, f1, f2, weights=(1,), remove_oov=False):
         """
         Complicated composition function.
 
         Parameters
         ----------
-        sentences : nested lists of items
-            The sentences to compose over. The function requires that
+        sentences : nested list of items
+            The sentences to compose over.
+        f1 : function
+            The first composition function.
+        f2 : function
+            The second composition function.
+        weight_dict : dict
+            A dictionary with mappings to assign to words.
+            The values in this dictionary are first all made positive, and
+            are then scaled between 0 and 1.
+        default_value : float, optional, default 1.0
+            The default value to assign to words not in the dictionary.
+        remove_oov : bool, optional, default True
 
+        Returns
+        -------
+        v : np.array
+            Vector of a dimensionality equal to the number of dimensions of
+            the items in this vector space.
 
         """
         def _compose(vectors, function, weight):
@@ -516,18 +582,21 @@ class Reach(object):
             vectors *= weight[:, None]
             return function(vectors, axis=0)
 
-        if len(sentences != 1) and len(weights) != len(sentences):
-            raise ValueError("The number of weights must be equal to the "
-                             "number of sentences or equal to 1.")
+        if len(weights) == 1:
+            weights = [np.array([weights[0]] * len(x)) for x in sentences]
+        elif any([len(x) != len(y) for x, y in zip(sentences, weights)]):
+            raise ValueError("The number of words and number of weights "
+                             "must match for each sentence.")
+        else:
+            weights = [np.array(w) for w in weights]
 
         composed = []
 
-        for sent, weight in zip(sentences):
+        for sent, weight in zip(sentences, weights):
             vec = self.vectorize(sent, remove_oov=remove_oov)
             composed.append(_compose(vec, f1, weight))
 
         return _compose(np.asarray(composed), f2, np.ones(len(composed)))
-
 
     def prune(self, wordlist):
         """
