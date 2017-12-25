@@ -111,8 +111,6 @@ class Reach(object):
         into your BoW space whenever an unknown word is encountered.
     size : int
         The dimensionality of the vector space.
-    zero : numpy array
-        A vector of zeros of the dimensionality of the vector space.
     name : string
         The name of the Reach instance.
 
@@ -277,7 +275,6 @@ class Reach(object):
                 return self.norm_vectors[self.words[w]]
             return self.vectors[self.words[w]]
         except KeyError:
-            logging.info("{0} was OOV".format(w))
             if self.unk_index is not None:
                 return self.vectors[self.unk_index]
             return self._zero()
@@ -383,7 +380,8 @@ class Reach(object):
                      words,
                      num=10,
                      batch_size=100,
-                     show_progressbar=False):
+                     show_progressbar=False,
+                     return_names=True):
         """
         Return the num most similar words to a given list of words.
 
@@ -396,24 +394,35 @@ class Reach(object):
         batch_size : int, optional, default 100.
             The batch size to use. 100 is a good default option. Increasing
             the batch size may increase the speed.
+        show_progressbar : bool, optional, default False
+            Whether to show a progressbar.
+        return_names : bool, optional, default True
+            Whether to return the item names, or just the distances.
 
         Returns
         -------
         sim : list of tuples.
             For each word in the input the num most similar items are returned
-            in the form of (NAME, DISTANCE) tuples.
+            in the form of (NAME, DISTANCE) tuples. If return_names is false,
+            the returned list just contains distances.
 
         """
-        # TODO: fix this, breaks when using tuples as words.
-        if isinstance(words, str):
+        # This line allows users to input single items.
+        # We used to rely on string identities, but we now also allow
+        # anything hashable as keys.
+        # Might fail if a list of passed items is also in the vocabulary.
+        # but I can't think of cases when this would happen, and what
+        # user expectations are.
+        if words in self.words:
             words = [words]
         x = np.stack([self[w] for w in words])
         return [x[1:] for x in self._batch(x,
                                            batch_size,
                                            num+1,
-                                           show_progressbar)]
+                                           show_progressbar,
+                                           return_names)]
 
-    def _batch(self, vectors, batch_size, num, show_progressbar):
+    def _batch(self, vectors, batch_size, num, show_progressbar, return_names):
         """Batched cosine distance."""
         vectors = self.normalize(vectors)
 
@@ -426,14 +435,19 @@ class Reach(object):
             distances = vectors[i: i+batch_size].dot(normed_transpose)
             for lidx, dist in enumerate(distances):
                 sorted_indices = np.argsort(-dist)
-                yield [(self.indices[idx], distances[lidx, idx])
-                       for idx in sorted_indices[:num]]
+                if return_names:
+                    yield [(self.indices[idx], distances[lidx, idx])
+                           for idx in sorted_indices[:num]]
+                else:
+                    yield [distances[lidx, idx]
+                           for idx in sorted_indices[:num]]
 
     def nearest_neighbor(self,
                          vectors,
-                         batch_size=100,
                          num=10,
-                         show_progressbar=False):
+                         batch_size=100,
+                         show_progressbar=False,
+                         return_names=True):
         """
         Find the nearest neighbors to some arbitrary vector.
 
@@ -450,7 +464,11 @@ class Reach(object):
             The number of most similar items to retrieve.
         batch_size : int, optional, default 100.
             The batch size to use. 100 is a good default option. Increasing
-            the batch size may increase the speed.
+            the batch size may increase speed.
+        show_progressbar : bool, optional, default False
+            Whether to show a progressbar.
+        return_names : bool, optional, default True
+            Whether to return the item names, or just the distances.
 
         Returns
         -------
@@ -460,7 +478,11 @@ class Reach(object):
 
         """
         vectors = np.array(vectors)
-        return list(self._batch(vectors, batch_size, num, show_progressbar))
+        return list(self._batch(vectors,
+                                batch_size,
+                                num,
+                                show_progressbar,
+                                return_names))
 
     @staticmethod
     def normalize(vectors):
