@@ -287,7 +287,7 @@ class Reach(object):
         """Get a zero vector."""
         return np.zeros((self.size,))
 
-    def vectorize(self, tokens, remove_oov=False):
+    def vectorize(self, tokens, remove_oov=False, norm=False):
         """
         Vectorize a sentence by replacing all words with their vectors.
 
@@ -314,10 +314,10 @@ class Reach(object):
             tokens = tokens.split()
 
         if remove_oov:
-            return np.stack([self._vector(t) for t in tokens
+            return np.stack([self._vector(t, norm=norm) for t in tokens
                             if t in self.words])
         else:
-            return np.stack([self._vector(t) for t in tokens])
+            return np.stack([self._vector(t, norm=norm) for t in tokens])
 
     def bow(self, tokens, remove_oov=False):
         """
@@ -353,7 +353,7 @@ class Reach(object):
                                      "which replaces any OOV words.")
                 yield self.unk_index
 
-    def transform(self, corpus, remove_oov=False):
+    def transform(self, corpus, remove_oov=False, norm=False):
         """
         Transform a corpus by repeated calls to vectorize, defined above.
 
@@ -374,7 +374,8 @@ class Reach(object):
             of different lengths, depending on whether remove_oov is True.
 
         """
-        return [self.vectorize(s, remove_oov=remove_oov) for s in corpus]
+        return [self.vectorize(s, remove_oov=remove_oov, norm=norm)
+                for s in corpus]
 
     def most_similar(self,
                      words,
@@ -486,19 +487,42 @@ class Reach(object):
 
     @staticmethod
     def normalize(vectors):
-        """Normalize a matrix rowwise."""
+        """
+        Normalize a matrix of row vectors to unit length.
+
+        Contains a shortcut if there are no zero vectors in the matrix.
+        If there are zero vectors, we do some indexing tricks to avoid
+        dividing by 0.
+
+        Parameters
+        ----------
+        vectors : np.array
+            The vectors to normalize.
+
+        Returns
+        -------
+        vectors : np.array
+            The input vectors, normalized to unit length.
+
+        """
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
         norm = np.linalg.norm(vectors, axis=1)
-        nonzero = norm > 0
 
-        result = np.zeros_like(vectors)
+        if np.any(norm == 0):
 
-        n = norm[nonzero]
-        p = vectors[nonzero]
-        result[nonzero] = p / n[:, None]
-        return result
+            nonzero = norm > 0
+
+            result = np.zeros_like(vectors)
+
+            n = norm[nonzero]
+            p = vectors[nonzero]
+            result[nonzero] = p / n[:, None]
+
+            return result
+        else:
+            return vectors / norm[:, None]
 
     def similarity(self, w1, w2):
         """
