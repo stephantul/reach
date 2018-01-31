@@ -122,6 +122,11 @@ class Reach(object):
             raise ValueError("Your vector space and list of words are not "
                              "the same length: "
                              "{} != {}".format(len(vectors), len(words)))
+        if isinstance(words, dict) or isinstance(words, set):
+            raise ValueError("Your wordlist is a set or dict, and might not "
+                             "retain order in the conversion to internal look"
+                             "-ups. Please convert it to list and check the "
+                             "order.")
 
         self.words = {w: idx for idx, w in enumerate(words)}
         self.indices = {v: k for k, v in self.words.items()}
