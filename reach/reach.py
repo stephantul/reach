@@ -80,17 +80,17 @@ class Spreach(object):
 
 class Reach(object):
     """
-    Work with vector representations of words.
+    Work with vector representations of items.
 
     Supports functions for calculating fast batched similarity
-    between words or composite representations of words.
+    between items or composite representations of items.
 
     Parameters
     ----------
     vectors : numpy array
         The vector space.
-    words : list
-        A list of words. Length must be equal to the number of vectors, and
+    items : list
+        A list of items. Length must be equal to the number of vectors, and
         aligned with the vectors.
     name : string, optional
         A string giving the name of the current reach. Only useful if you
@@ -98,17 +98,17 @@ class Reach(object):
 
     Attributes
     ----------
-    words : dict
-        A mapping from words to ids.
+    items : dict
+        A mapping from items to ids.
     indices : dict
-        A mapping from ids to words.
+        A mapping from ids to items.
     vectors : numpy array
         The array representing the vector space.
     norm_vectors : numpy array
         A normalized version of the vector space.
     unk_index : int
         The integer index of your unknown glyph. This glyph will be inserted
-        into your BoW space whenever an unknown word is encountered.
+        into your BoW space whenever an unknown item is encountered.
     size : int
         The dimensionality of the vector space.
     name : string
@@ -116,20 +116,20 @@ class Reach(object):
 
     """
 
-    def __init__(self, vectors, words, name="", unk_index=None):
-        """Initialize a Reach instance with an array and words."""
-        if len(words) != len(vectors):
-            raise ValueError("Your vector space and list of words are not "
+    def __init__(self, vectors, items, name="", unk_index=None):
+        """Initialize a Reach instance with an array and list of items."""
+        if len(items) != len(vectors):
+            raise ValueError("Your vector space and list of items are not "
                              "the same length: "
-                             "{} != {}".format(len(vectors), len(words)))
-        if isinstance(words, dict) or isinstance(words, set):
-            raise ValueError("Your wordlist is a set or dict, and might not "
+                             "{} != {}".format(len(vectors), len(items)))
+        if isinstance(items, dict) or isinstance(items, set):
+            raise ValueError("Your item list is a set or dict, and might not "
                              "retain order in the conversion to internal look"
                              "-ups. Please convert it to list and check the "
                              "order.")
 
-        self.words = {w: idx for idx, w in enumerate(words)}
-        self.indices = {v: k for k, v in self.words.items()}
+        self.items = {w: idx for idx, w in enumerate(items)}
+        self.indices = {v: k for k, v in self.items.items()}
 
         self.vectors = np.asarray(vectors)
         self.norm_vectors = self.normalize(self.vectors)
@@ -160,14 +160,14 @@ class Reach(object):
             (NUMBER OF ITEMS, SIZE OF VECTOR).
         unk_index : int, optional, default None
             The index of your unknown glyph. If this is set to None, your reach
-            can't assing a BOW index to unknown words, and will throw an error
+            can't assing a BOW index to unknown items, and will throw an error
             whenever you try to do so.
         wordlist : iterable, optional, default ()
             A list of words you want loaded from the vector file. If this is
             None (default), all words will be loaded.
         num_to_load : int, optional, default None
-            The number of words to load from the file. Because loading can take
-            some time, it is sometimes useful to onlyl load the first n words
+            The number of items to load from the file. Because loading can take
+            some time, it is sometimes useful to onlyl load the first n items
             from a vector file for quick inspection.
         truncate_embeddings : int, optional, default None
             If this value is not None, the vectors in the vector space will
@@ -179,13 +179,13 @@ class Reach(object):
             An initialized Reach instance.
 
         """
-        vectors, words = Reach._load(pathtovector,
+        vectors, items = Reach._load(pathtovector,
                                      header,
                                      wordlist,
                                      num_to_load,
                                      truncate_embeddings)
         return Reach(vectors,
-                     words,
+                     items,
                      name=os.path.split(pathtovector)[-1],
                      unk_index=unk_index)
 
@@ -214,7 +214,7 @@ class Reach(object):
             logger.info("Vector space: {} by {}".format(num, size))
         else:
             size = len(firstline.split()) - 1
-            logger.info("Vector space: {} dim, # words unknown".format(size))
+            logger.info("Vector space: {} dim, # items unknown".format(size))
 
         if truncate_embeddings is None or truncate_embeddings == 0:
             truncate_embeddings = size
@@ -251,19 +251,19 @@ class Reach(object):
         if wordlist:
             diff = wordlist - addedwords
             if diff:
-                logger.info("Not all words from your wordlist were in your "
+                logger.info("Not all items from your wordlist were in your "
                             "vector space: {}.".format(diff))
 
         return vectors, words
 
-    def _vector(self, w, norm=False):
+    def _vector(self, i, norm=False):
         """
-        Return the vector of a word, or the zero vector if the word is OOV.
+        Return the vector of an item, or the zero vector if the item is OOV.
 
         Parameters
         ----------
-        w : str
-            The word for which to retrieve the vector.
+        item : object
+            The item for which to retrieve the vector.
         norm : bool, optional, default False
             If true, this function returns the normalized vector.
             If not, this returns the regular vector.
@@ -271,22 +271,22 @@ class Reach(object):
         Returns
         -------
         v : numpy array
-            The vector of the word if the word is in vocab, the zero vector
+            The vector of the item if the item is in vocab, the zero vector
             otherwise.
 
         """
         try:
             if norm:
-                return self.norm_vectors[self.words[w]]
-            return self.vectors[self.words[w]]
+                return self.norm_vectors[self.items[i]]
+            return self.vectors[self.items[i]]
         except KeyError:
             if self.unk_index is not None:
                 return self.vectors[self.unk_index]
             return self._zero()
 
-    def __getitem__(self, word):
-        """Get the vector for a single word."""
-        return self.vectors[self.words[word]]
+    def __getitem__(self, item):
+        """Get the vector for a single item."""
+        return self.vectors[self.items[item]]
 
     def _zero(self):
         """Get a zero vector."""
@@ -294,22 +294,22 @@ class Reach(object):
 
     def vectorize(self, tokens, remove_oov=False, norm=False):
         """
-        Vectorize a sentence by replacing all words with their vectors.
+        Vectorize a sentence by replacing all items with their vectors.
 
         Parameters
         ----------
-        tokens : string or list of string
+        tokens : object or list of objects
             The tokens to vectorize.
         remove_oov : bool, optional, default False
-            Whether to remove OOV words. If False, OOV words are replaced by
+            Whether to remove OOV items. If False, OOV items are replaced by
             the zero vector. If this is True, the returned sequence might
             have a different length than the original sequence.
 
         Returns
         -------
         s : numpy array
-            An M * N matrix, where every word has been replaced by
-            its vector. OOV words are either removed, replaced by
+            An M * N matrix, where every item has been replaced by
+            its vector. OOV items are either removed, replaced by
             zero vectors, or by the value of the UNK glyph.
 
         """
@@ -320,7 +320,7 @@ class Reach(object):
 
         if remove_oov:
             return np.stack([self._vector(t, norm=norm) for t in tokens
-                            if t in self.words])
+                            if t in self.items])
         else:
             return np.stack([self._vector(t, norm=norm) for t in tokens])
 
@@ -331,31 +331,31 @@ class Reach(object):
         Parameters
         ----------
         tokens : list.
-            The list of words to change into a bag of words.
+            The list of items to change into a bag of words representation.
         remove_oov : bool.
-            Whether to remove OOV words from the input.
+            Whether to remove OOV items from the input.
             If this is True, the length of the returned BOW representation
             might not be the length of the original representation.
 
         Returns
         -------
         bow : generator
-            A BOW representation of the list of words.
+            A BOW representation of the list of items.
 
         """
         if remove_oov:
-            tokens = [x for x in tokens if x in self.words]
+            tokens = [x for x in tokens if x in self.items]
 
         for t in tokens:
             try:
-                yield self.words[t]
+                yield self.items[t]
             except KeyError:
                 if self.unk_index is None:
-                    raise ValueError("You supplied OOV words but didn't supply"
+                    raise ValueError("You supplied OOV items but didn't supply"
                                      "the index of the replacement glyph. "
                                      "Either set remove_oov to True, or set "
-                                     "unk_index to the index of the word "
-                                     "which replaces any OOV words.")
+                                     "unk_index to the index of the item "
+                                     "which replaces any OOV items.")
                 yield self.unk_index
 
     def transform(self, corpus, remove_oov=False, norm=False):
@@ -368,7 +368,7 @@ class Reach(object):
             Represents a corpus as a list of sentences, where sentences
             can either be strings or lists of tokens.
         remove_oov : bool, optional, default False
-            If True, removes OOV words from the input before vectorization.
+            If True, removes OOV items from the input before vectorization.
 
         Returns
         -------
@@ -383,18 +383,18 @@ class Reach(object):
                 for s in corpus]
 
     def most_similar(self,
-                     words,
+                     items,
                      num=10,
                      batch_size=100,
                      show_progressbar=False,
                      return_names=True):
         """
-        Return the num most similar words to a given list of words.
+        Return the num most similar items to a given list of items.
 
         Parameters
         ----------
-        words : list of strings or a single string.
-            The words to get the most similar words to.
+        items : list of objects or a single object.
+            The items to get the most similar items to.
         num : int, optional, default 10
             The number of most similar items to retrieve.
         batch_size : int, optional, default 100.
@@ -408,7 +408,7 @@ class Reach(object):
         Returns
         -------
         sim : list of tuples.
-            For each word in the input the num most similar items are returned
+            For each items in the input the num most similar items are returned
             in the form of (NAME, DISTANCE) tuples. If return_names is false,
             the returned list just contains distances.
 
@@ -419,9 +419,9 @@ class Reach(object):
         # Might fail if a list of passed items is also in the vocabulary.
         # but I can't think of cases when this would happen, and what
         # user expectations are.
-        if words in self.words:
-            words = [words]
-        x = np.stack([self[w] for w in words])
+        if items in self.items:
+            items = [items]
+        x = np.stack([self[w] for w in items])
         return [x[1:] for x in self._batch(x,
                                            batch_size,
                                            num+1,
@@ -458,7 +458,7 @@ class Reach(object):
         Find the nearest neighbors to some arbitrary vector.
 
         This function is meant to be used in composition operations. The
-        most_similar function can only handle words that are in vocab, and
+        most_similar function can only handle items that are in vocab, and
         looks up their vector through a dictionary. Compositions, e.g.
         "King - man + woman" are necessarily not in the vocabulary.
 
@@ -479,7 +479,7 @@ class Reach(object):
         Returns
         -------
         sim : list of tuples.
-            For each word in the input the num most similar items are returned
+            For each item in the input the num most similar items are returned
             in the form of (NAME, DISTANCE) tuples.
 
         """
@@ -529,27 +529,49 @@ class Reach(object):
         else:
             return vectors / norm[:, None]
 
-    def similarity(self, w1, w2):
-        """
-        Compute the similarity between two words based on cosine distance.
+    def _check(self, items):
+        """Check if items are in vocab."""
+        # Lazy evaluation wins the day.
+        try:
+            val = items in self.items
+        except TypeError:
+            val = False
+        return val or np.all([i in self.items for i in items])
 
-        First normalizes the vectors.
+    def vector_similarity(self, vector, items):
+        """Compute the similarity between a vector and a set of items."""
+        if not self._check(items):
+            raise ValueError("Not all items were in vocabulary.")
+        vector = self.normalize(vector)
+        items = self.vectorize(items, norm=True, remove_oov=False)
+        return self._similarity(vector, items)[0]
+
+    def similarity(self, i1, i2):
+        """
+        Compute the similarity between two sets of items based.
 
         Parameters
         ----------
-        w1 : str
-            The first word.
-        w2 : str
-            The second word.
+        i1 : object
+            The first set of items.
+        i2 : object
+            The second set of item.
 
         Returns
         -------
-        sim : float
-            A similarity score between 1 and 0.
+        sim : array of floats
+            An array of similarity scores between 1 and 0.
 
         """
-        vec = self.norm_vectors[self.words[w1]]
-        return vec.dot(self.norm_vectors[self.words[w2]])
+        if not (self._check(i1) and self._check(i2)):
+            raise ValueError("Not all items were in vocabulary.")
+        i1 = self.vectorize(i1, norm=True)
+        i2 = self.vectorize(i2, norm=True)
+        return self._similarity(i1, i2)
+
+    def _similarity(self, v1, v2):
+        """Return the similarity between two vectors."""
+        return v1.dot(v2.T)
 
     def weighted_compose(self,
                          sentences,
@@ -559,24 +581,24 @@ class Reach(object):
                          default_value=1.0,
                          remove_oov=True):
         """
-        Compose words using a dictionary filled with weights.
+        Compose items using a dictionary filled with weights.
 
         Useful for Tf-idf weighted composition.
 
         Parameters
         ----------
-        sentences : nested list of items
+        sequences : nested list of items
             The sentences to compose over.
         f1 : function
             The first composition function.
         f2 : function
             The second composition function.
         weight_dict : dict
-            A dictionary with mappings to assign to words.
+            A dictionary with mappings to assign to items.
             The values in this dictionary are first all made positive, and
             are then scaled between 0 and 1.
         default_value : float, optional, default 1.0
-            The default value to assign to words not in the dictionary.
+            The default value to assign to items not in the dictionary.
         remove_oov : bool, optional, default True
 
         Returns
@@ -601,25 +623,22 @@ class Reach(object):
                             weights=weights,
                             remove_oov=remove_oov)
 
-    def compose(self, sentences, f1, f2, weights=(1,), remove_oov=False):
+    def compose(self, sequences, f1, f2, weights=(1,), remove_oov=False):
         """
         Complicated composition function.
 
         Parameters
         ----------
-        sentences : nested list of items
-            The sentences to compose over.
+        sequences : nested list of items
+            The sequences to compose over.
         f1 : function
             The first composition function.
         f2 : function
             The second composition function.
-        weight_dict : dict
-            A dictionary with mappings to assign to words.
-            The values in this dictionary are first all made positive, and
-            are then scaled between 0 and 1.
-        default_value : float, optional, default 1.0
-            The default value to assign to words not in the dictionary.
+        weights : tuple
+            The weight to assign to different parts of the composition.
         remove_oov : bool, optional, default True
+            Whether to remove OOV items from the input.
 
         Returns
         -------
@@ -634,16 +653,16 @@ class Reach(object):
             return function(vectors, axis=0)
 
         if len(weights) == 1:
-            weights = [np.array([weights[0]] * len(x)) for x in sentences]
-        elif any([len(x) != len(y) for x, y in zip(sentences, weights)]):
-            raise ValueError("The number of words and number of weights "
-                             "must match for each sentence.")
+            weights = [np.array([weights[0]] * len(x)) for x in sequences]
+        elif any([len(x) != len(y) for x, y in zip(sequences, weights)]):
+            raise ValueError("The number of items and number of weights "
+                             "must match for each sequence.")
         else:
             weights = [np.array(w) for w in weights]
 
         composed = []
 
-        for sent, weight in zip(sentences, weights):
+        for sent, weight in zip(sequences, weights):
             vec = self.vectorize(sent, remove_oov=remove_oov)
             composed.append(_compose(vec, f1, weight))
 
@@ -651,7 +670,7 @@ class Reach(object):
 
     def prune(self, wordlist):
         """
-        Prune the current reach instance by removing words.
+        Prune the current reach instance by removing items.
 
         Can be helpful if you don't have the vector space loaded on disk, or
         if you want to perform random sampling on the vector space in
@@ -665,17 +684,17 @@ class Reach(object):
         """
         # Remove duplicates
         wordlist = set(wordlist)
-        indices = [self.words[w] for w in wordlist]
+        indices = [self.items[w] for w in wordlist]
         if self.unk_index is not None and self.unk_index not in indices:
-            raise ValueError("Your unknown word is not in your wordlist. "
+            raise ValueError("Your unknown item is not in your list of items. "
                              "Set it to None before pruning, or pass your "
-                             "unknown word.")
+                             "unknown item.")
         self.vectors = self.vectors[indices]
         self.norm_vectors = self.norm_vectors[indices]
-        self.words = {w: idx for idx, w in enumerate(wordlist)}
-        self.indices = {v: k for k, v in self.words.items()}
+        self.items = {w: idx for idx, w in enumerate(wordlist)}
+        self.indices = {v: k for k, v in self.items.items()}
         if self.unk_index is not None:
-            self.unk_index = self.words[wordlist[self.unk_index]]
+            self.unk_index = self.items[wordlist[self.unk_index]]
 
     def save(self, path, write_header=True):
         """
@@ -696,7 +715,7 @@ class Reach(object):
                 f.write(u"{0} {1}\n".format(str(self.vectors.shape[0]),
                         str(self.vectors.shape[1])))
 
-            for i in range(len(self.words)):
+            for i in range(len(self.items)):
 
                 w = self.indices[i]
                 vec = self.vectors[i]
