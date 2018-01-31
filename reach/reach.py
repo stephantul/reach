@@ -282,7 +282,8 @@ class Reach(object):
         except KeyError:
             if self.unk_index is not None:
                 return self.vectors[self.unk_index]
-            return self._zero()
+            raise ValueError("'{}' is not present in the vector "
+                             "space.".format(i))
 
     def __getitem__(self, item):
         """Get the vector for a single item."""
@@ -314,9 +315,7 @@ class Reach(object):
 
         """
         if not tokens:
-            return np.copy(self._zero())[None, :]
-        if isinstance(tokens, str):
-            tokens = tokens.split()
+            return self._zero()[None, :]
 
         if remove_oov:
             return np.stack([self._vector(t, norm=norm) for t in tokens
@@ -419,9 +418,12 @@ class Reach(object):
         # Might fail if a list of passed items is also in the vocabulary.
         # but I can't think of cases when this would happen, and what
         # user expectations are.
-        if items in self.items:
-            items = [items]
-        x = np.stack([self[w] for w in items])
+        try:
+            if items in self.items:
+                items = [items]
+        except TypeError:
+            pass
+        x = self.vectorize(items, norm=True, remove_oov=False)
         return [x[1:] for x in self._batch(x,
                                            batch_size,
                                            num+1,
@@ -529,19 +531,8 @@ class Reach(object):
         else:
             return vectors / norm[:, None]
 
-    def _check(self, items):
-        """Check if items are in vocab."""
-        # Lazy evaluation wins the day.
-        try:
-            val = items in self.items
-        except TypeError:
-            val = False
-        return val or np.all([i in self.items for i in items])
-
     def vector_similarity(self, vector, items):
         """Compute the similarity between a vector and a set of items."""
-        if not self._check(items):
-            raise ValueError("Not all items were in vocabulary.")
         vector = self.normalize(vector)
         items = self.vectorize(items, norm=True, remove_oov=False)
         return self._similarity(vector, items)[0]
@@ -563,10 +554,8 @@ class Reach(object):
             An array of similarity scores between 1 and 0.
 
         """
-        if not (self._check(i1) and self._check(i2)):
-            raise ValueError("Not all items were in vocabulary.")
-        i1 = self.vectorize(i1, norm=True)
-        i2 = self.vectorize(i2, norm=True)
+        i1 = self.vectorize(i1, norm=True, remove_oov=False)
+        i2 = self.vectorize(i2, norm=True, remove_oov=False)
         return self._similarity(i1, i2)
 
     def _similarity(self, v1, v2):
