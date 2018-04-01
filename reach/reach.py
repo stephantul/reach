@@ -670,7 +670,7 @@ class Reach(object):
 
         """
         # Remove duplicates
-        wordlist = set(wordlist)
+        wordlist = set(wordlist).intersection(set(self.items.keys()))
         indices = [self.items[w] for w in wordlist if w in self.items]
         if self.unk_index is not None and self.unk_index not in indices:
             raise ValueError("Your unknown item is not in your list of items. "
