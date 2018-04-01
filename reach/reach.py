@@ -708,15 +708,44 @@ class Reach(object):
                 f.write(u"{0} {1}\n".format(w,
                                             " ".join([str(x) for x in vec])))
 
-    def save_fast_format(self, filepath):
-        """Save a reach instance in a fast format, which includes ."""
+    def save_fast_format(self, filename):
+        """
+        Save a reach instance in a fast format.
+
+        The reach fast format stores the words and vectors of a Reach instance
+        separately in a JSON and numpy format, respectively.
+
+        Parameters
+        ----------
+        filename : str
+            The prefix to add to the saved filename. Note that this is not the
+            real filename under which these items are stored.
+            The words are stored under "{filename}_words.json", and the numpy
+            matrix is saved under "{filename}_vectors.npy".
+
+        """
         words, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
-        json.dump(words, open("{}_words.json".format(filepath), 'w'))
-        np.save(open("{}_vectors.npy".format(filepath), 'wb'), self.vectors)
+        json.dump(words, open("{}_words.json".format(filename), 'w'))
+        np.save(open("{}_vectors.npy".format(filename), 'wb'), self.vectors)
 
     @staticmethod
-    def load_fast_format(filepath):
-        """Load a reach instance in fast format."""
-        words = json.load(open("{}_words.json".format(filepath)))
-        vectors = np.load(open("{}_vectors.npy".format(filepath), 'rb'))
+    def load_fast_format(filename):
+        """
+        Load a reach instance in fast format.
+
+        As described above, the fast format stores the words and vectors of the
+        Reach instance separately, and is drastically faster than loading from
+        .txt files.
+
+        Parameters
+        ----------
+        filename : str
+            The filename prefix from which to load. Note that this is not a
+            real filepath as such, but a shared prefix for both files.
+            In order for this to work, both {filename}_words.json and
+            {filename}_vectors.npy should be present.
+
+        """
+        words = json.load(open("{}_words.json".format(filename)))
+        vectors = np.load(open("{}_vectors.npy".format(filename), 'rb'))
         return Reach(vectors, words)
