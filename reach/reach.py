@@ -661,19 +661,17 @@ class Reach(object):
         """
         Prune the current reach instance by removing items.
 
-        Can be helpful if you don't have the vector space loaded on disk, or
-        if you want to perform random sampling on the vector space in
-        memory.
-
         Parameters
         ----------
         wordlist : list of str
-            A list of words to keep.
+            A list of words to keep. Note that this wordlist need not include
+            all words in the Reach instance. Any words which are in the
+            wordlist, but not in the reach instance are ignored.
 
         """
         # Remove duplicates
         wordlist = set(wordlist)
-        indices = [self.items[w] for w in wordlist]
+        indices = [self.items[w] for w in wordlist if w in self.items]
         if self.unk_index is not None and self.unk_index not in indices:
             raise ValueError("Your unknown item is not in your list of items. "
                              "Set it to None before pruning, or pass your "
