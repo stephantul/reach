@@ -314,14 +314,12 @@ class Reach(object):
             zero vectors, or by the value of the UNK glyph.
 
         """
+        if remove_oov:
+            tokens = [t for t in tokens if t in self.items]
         if not tokens:
             return self._zero()[None, :]
 
-        if remove_oov:
-            return np.stack([self._vector(t, norm=norm) for t in tokens
-                            if t in self.items])
-        else:
-            return np.stack([self._vector(t, norm=norm) for t in tokens])
+        return np.stack([self._vector(t, norm=norm) for t in tokens])
 
     def bow(self, tokens, remove_oov=False):
         """
@@ -709,3 +707,16 @@ class Reach(object):
 
                 f.write(u"{0} {1}\n".format(w,
                                             " ".join([str(x) for x in vec])))
+
+    def save_fast_format(self, filepath):
+        """Save a reach instance in a fast format, which includes ."""
+        words, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
+        json.dump(words, open("{}_words.json".format(filepath), 'w'))
+        np.save(open("{}_vectors.npy".format(filepath), 'wb'), self.vectors)
+
+    @staticmethod
+    def load_fast_format(filepath):
+        """Load a reach instance in fast format."""
+        words = json.load(open("{}_words.json".format(filepath)))
+        vectors = np.load(open("{}_vectors.npy".format(filepath), 'rb'))
+        return Reach(vectors, words)
