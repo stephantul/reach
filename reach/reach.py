@@ -141,10 +141,10 @@ class Reach(object):
     @staticmethod
     def load(pathtovector,
              header=True,
-             unk_index=None,
              wordlist=(),
              num_to_load=None,
-             truncate_embeddings=None):
+             truncate_embeddings=None,
+             unk_word=None):
         r"""
         Read a file in word2vec .txt format.
 
@@ -158,10 +158,6 @@ class Reach(object):
         header : bool
             Whether the vector file has a header of the type
             (NUMBER OF ITEMS, SIZE OF VECTOR).
-        unk_index : int, optional, default None
-            The index of your unknown glyph. If this is set to None, your reach
-            can't assing a BOW index to unknown items, and will throw an error
-            whenever you try to do so.
         wordlist : iterable, optional, default ()
             A list of words you want loaded from the vector file. If this is
             None (default), all words will be loaded.
@@ -172,6 +168,10 @@ class Reach(object):
         truncate_embeddings : int, optional, default None
             If this value is not None, the vectors in the vector space will
             be truncated to the number of dimensions indicated by this value.
+        unk_word : object
+            The object to treat as UNK in your vector space. If this is not
+            in your items dictionary after loading, we add it with a zero
+            vector.
 
         Returns
         -------
@@ -184,6 +184,17 @@ class Reach(object):
                                      wordlist,
                                      num_to_load,
                                      truncate_embeddings)
+        if unk_word is not None:
+            if unk_word not in set(items):
+                unk_vec = np.zeros((1, vectors.shape[1]))
+                vectors = np.concatenate([unk_vec, vectors], 0)
+                items = [unk_word] + items
+                unk_index = 0
+            else:
+                unk_index = items.index(unk_word)
+        else:
+            unk_index = None
+
         return Reach(vectors,
                      items,
                      name=os.path.split(pathtovector)[-1],
@@ -191,10 +202,10 @@ class Reach(object):
 
     @staticmethod
     def _load(pathtovector,
-              header=True,
-              wordlist=(),
-              num_to_load=None,
-              truncate_embeddings=None):
+              header,
+              wordlist,
+              num_to_load,
+              truncate_embeddings):
         """Load a matrix and wordlist from a .vec file."""
         vectors = []
         addedwords = set()
@@ -256,42 +267,9 @@ class Reach(object):
 
         return vectors, words
 
-    def _vector(self, i, norm=False):
-        """
-        Return the vector of an item, or the zero vector if the item is OOV.
-
-        Parameters
-        ----------
-        item : object
-            The item for which to retrieve the vector.
-        norm : bool, optional, default False
-            If true, this function returns the normalized vector.
-            If not, this returns the regular vector.
-
-        Returns
-        -------
-        v : numpy array
-            The vector of the item if the item is in vocab, the zero vector
-            otherwise.
-
-        """
-        try:
-            if norm:
-                return self.norm_vectors[self.items[i]]
-            return self.vectors[self.items[i]]
-        except KeyError:
-            if self.unk_index is not None:
-                return self.vectors[self.unk_index]
-            raise ValueError("'{}' is not present in the vector "
-                             "space.".format(i))
-
     def __getitem__(self, item):
         """Get the vector for a single item."""
         return self.vectors[self.items[item]]
-
-    def _zero(self):
-        """Get a zero vector."""
-        return np.zeros((self.size,))
 
     def vectorize(self, tokens, remove_oov=False, norm=False):
         """
@@ -303,23 +281,31 @@ class Reach(object):
             The tokens to vectorize.
         remove_oov : bool, optional, default False
             Whether to remove OOV items. If False, OOV items are replaced by
-            the zero vector. If this is True, the returned sequence might
+            the UNK glyph. If this is True, the returned sequence might
             have a different length than the original sequence.
+        norm : bool, optional, default False
+            Whether to return the unit vectors, or the regular vectors.
 
         Returns
         -------
         s : numpy array
             An M * N matrix, where every item has been replaced by
-            its vector. OOV items are either removed, replaced by
-            zero vectors, or by the value of the UNK glyph.
+            its vector. OOV items are either removed, or replaced
+            by the value of the UNK glyph.
 
         """
-        if remove_oov:
-            tokens = [t for t in tokens if t in self.items]
         if not tokens:
-            return self._zero()[None, :]
-
-        return np.stack([self._vector(t, norm=norm) for t in tokens])
+            raise ValueError("You supplied an empty list.")
+        index = list(self.bow(tokens, remove_oov=remove_oov))
+        if not index:
+            raise ValueError("You supplied a list with only OOV tokens: {}, "
+                             "which then got removed. Set remove_oov to False,"
+                             " or filter your sentences to remove any in which"
+                             " all items are OOV.")
+        if norm:
+            return np.stack([self.norm_vectors[x] for x in index])
+        else:
+            return np.stack([self.vectors[x] for x in index])
 
     def bow(self, tokens, remove_oov=False):
         """
@@ -421,7 +407,7 @@ class Reach(object):
                 items = [items]
         except TypeError:
             pass
-        x = self.vectorize(items, norm=True, remove_oov=False)
+        x = np.stack([self.norm_vectors[self.items[x]] for x in items])
         return [x[1:] for x in self._batch(x,
                                            batch_size,
                                            num+1,
@@ -532,12 +518,12 @@ class Reach(object):
     def vector_similarity(self, vector, items):
         """Compute the similarity between a vector and a set of items."""
         vector = self.normalize(vector)
-        items = self.vectorize(items, norm=True, remove_oov=False)
+        items = np.stack([self.norm_vectors[self.items[x]] for x in items])
         return self._similarity(vector, items)[0]
 
     def similarity(self, i1, i2):
         """
-        Compute the similarity between two sets of items based.
+        Compute the similarity between two sets of items.
 
         Parameters
         ----------
@@ -552,8 +538,8 @@ class Reach(object):
             An array of similarity scores between 1 and 0.
 
         """
-        i1 = self.vectorize(i1, norm=True, remove_oov=False)
-        i2 = self.vectorize(i2, norm=True, remove_oov=False)
+        i1 = np.stack([self.norm_vectors[self.items[x]] for x in i1])
+        i2 = np.stack([self.norm_vectors[self.items[x]] for x in i2])
         return self._similarity(i1, i2)
 
     def _similarity(self, v1, v2):

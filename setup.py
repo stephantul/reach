@@ -6,8 +6,9 @@ from setuptools import find_packages
 
 
 setup(name='reach',
-      version='2.0.2',
-      description='A light-weight package for working with pre-trained word embeddings',
+      version='2.1.0',
+      description='A light-weight package for working with pre-trained'
+                  ' word embeddings',
       author='Stéphan Tulkens',
       author_email='stephan.tulkens@uantwerpen.be',
       url='https://github.com/stephantul/reach',
