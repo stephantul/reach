@@ -334,11 +334,11 @@ class Reach(object):
                 yield self.items[t]
             except KeyError:
                 if self.unk_index is None:
-                    raise ValueError("You supplied OOV items but didn't supply"
-                                     "the index of the replacement glyph. "
-                                     "Either set remove_oov to True, or set "
-                                     "unk_index to the index of the item "
-                                     "which replaces any OOV items.")
+                    raise ValueError("You supplied OOV items but didn't "
+                                     "provide the index of the replacement "
+                                     "glyph. Either set remove_oov to True, "
+                                     "or set unk_index to the index of the "
+                                     "item which replaces any OOV items.")
                 yield self.unk_index
 
     def transform(self, corpus, remove_oov=False, norm=False):
@@ -706,12 +706,16 @@ class Reach(object):
         filename : str
             The prefix to add to the saved filename. Note that this is not the
             real filename under which these items are stored.
-            The words are stored under "{filename}_words.json", and the numpy
-            matrix is saved under "{filename}_vectors.npy".
+            The words and unk_index are stored under "{filename}_words.json",
+            and the numpy matrix is saved under "{filename}_vectors.npy".
 
         """
-        words, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
-        json.dump(words, open("{}_words.json".format(filename), 'w'))
+        items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
+        items = {"items": items,
+                 "unk_index": self.unk_index,
+                 "name": self.name}
+
+        json.dump(items, open("{}_items.json".format(filename), 'w'))
         np.save(open("{}_vectors.npy".format(filename), 'wb'), self.vectors)
 
     @staticmethod
@@ -732,6 +736,7 @@ class Reach(object):
             {filename}_vectors.npy should be present.
 
         """
-        words = json.load(open("{}_words.json".format(filename)))
+        it = json.load(open("{}_items.json".format(filename)))
+        words, unk_index, name = it["items"], it["unk_index"], it["name"]
         vectors = np.load(open("{}_vectors.npy".format(filename), 'rb'))
-        return Reach(vectors, words)
+        return Reach(vectors, words, unk_index=unk_index, name=name)
