@@ -497,7 +497,10 @@ class Reach(object):
 
         """
         if np.ndim(vectors) == 1:
-            vectors = vectors[None, :]
+            norm = np.linalg.norm(vectors)
+            if norm == 0:
+                return np.zeros(norm)
+            return vectors / norm
 
         norm = np.linalg.norm(vectors, axis=1)
 
@@ -545,101 +548,6 @@ class Reach(object):
     def _similarity(self, v1, v2):
         """Return the similarity between two vectors."""
         return v1.dot(v2.T)
-
-    def weighted_compose(self,
-                         sentences,
-                         f1,
-                         f2,
-                         weight_dict,
-                         default_value=1.0,
-                         remove_oov=True):
-        """
-        Compose items using a dictionary filled with weights.
-
-        Useful for Tf-idf weighted composition.
-
-        Parameters
-        ----------
-        sequences : nested list of items
-            The sentences to compose over.
-        f1 : function
-            The first composition function.
-        f2 : function
-            The second composition function.
-        weight_dict : dict
-            A dictionary with mappings to assign to items.
-            The values in this dictionary are first all made positive, and
-            are then scaled between 0 and 1.
-        default_value : float, optional, default 1.0
-            The default value to assign to items not in the dictionary.
-        remove_oov : bool, optional, default True
-
-        Returns
-        -------
-        v : np.array
-            Vector of a dimensionality equal to the number of dimensions of
-            the items in this vector space.
-
-        """
-        min_val = np.abs(min(weight_dict.values()))
-        max_val = max(weight_dict.values()) + min_val
-        weight_dict = {k: (v + min_val) / max_val
-                       for k, v in weight_dict.items()}
-
-        weights = []
-        for s in sentences:
-            weights.append([weight_dict.get(w, default_value) for w in s])
-
-        return self.compose(sentences,
-                            f1,
-                            f2,
-                            weights=weights,
-                            remove_oov=remove_oov)
-
-    def compose(self, sequences, f1, f2, weights=(1,), remove_oov=False):
-        """
-        Complicated composition function.
-
-        Parameters
-        ----------
-        sequences : nested list of items
-            The sequences to compose over.
-        f1 : function
-            The first composition function.
-        f2 : function
-            The second composition function.
-        weights : tuple
-            The weight to assign to different parts of the composition.
-        remove_oov : bool, optional, default True
-            Whether to remove OOV items from the input.
-
-        Returns
-        -------
-        v : np.array
-            Vector of a dimensionality equal to the number of dimensions of
-            the items in this vector space.
-
-        """
-        def _compose(vectors, function, weight):
-            """Sub function for composition."""
-            vectors *= weight[:, None]
-            return function(vectors, axis=0)
-
-        if len(weights) == 1:
-            weights = [np.array([weights[0]] * len(x)) for x in sequences]
-        elif any([len(x) != len(y) for x, y in zip(sequences, weights)]):
-            raise ValueError("The number of items and number of weights "
-                             "must match for each sequence.")
-        else:
-            weights = [np.array(w) for w in weights]
-
-        composed = []
-
-        for sent, weight in zip(sequences, weights):
-            vec = self.vectorize(sent, remove_oov=remove_oov)
-            composed.append(_compose(vec, f1, weight))
-
-        return _compose(np.asarray(composed), f2, np.ones(len(composed)))
 
     def prune(self, wordlist):
         """
