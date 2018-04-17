@@ -140,7 +140,6 @@ class Reach(object):
 
     @staticmethod
     def load(pathtovector,
-             header=True,
              wordlist=(),
              num_to_load=None,
              truncate_embeddings=None,
@@ -180,7 +179,6 @@ class Reach(object):
 
         """
         vectors, items = Reach._load(pathtovector,
-                                     header,
                                      wordlist,
                                      num_to_load,
                                      truncate_embeddings)
@@ -202,7 +200,6 @@ class Reach(object):
 
     @staticmethod
     def _load(pathtovector,
-              header,
               wordlist,
               num_to_load,
               truncate_embeddings):
@@ -219,13 +216,15 @@ class Reach(object):
         logger.info("Loading {0}".format(pathtovector))
 
         firstline = open(pathtovector).readline()
-        if header:
+        try:
             num, size = firstline.split()
             num, size = int(num), int(size)
             logger.info("Vector space: {} by {}".format(num, size))
-        else:
+            header = True
+        except ValueError:
             size = len(firstline.split()) - 1
             logger.info("Vector space: {} dim, # items unknown".format(size))
+            header = False
 
         if truncate_embeddings is None or truncate_embeddings == 0:
             truncate_embeddings = size
@@ -247,7 +246,7 @@ class Reach(object):
             if len(rest.split()) != size:
                 raise ValueError("Incorrect input at index {}, size "
                                  "is {}, expected "
-                                 "{}".format(idx, len(rest.split()), size))
+                                 "{}".format(idx+1, len(rest.split()), size))
 
             words.append(word)
             addedwords.add(word)
@@ -425,14 +424,17 @@ class Reach(object):
                       disable=not show_progressbar):
 
             distances = vectors[i: i+batch_size].dot(normed_transpose)
-            for lidx, dist in enumerate(distances):
-                sorted_indices = np.argsort(-dist)
+            if num == 1:
+                sorted_indices = np.argmax(distances, 1)[:, None]
+            else:
+                sorted_indices = np.argsort(-distances, 1)
+            for lidx, indices in enumerate(sorted_indices):
                 if return_names:
                     yield [(self.indices[idx], distances[lidx, idx])
-                           for idx in sorted_indices[:num]]
+                           for idx in indices[:num]]
                 else:
                     yield [distances[lidx, idx]
-                           for idx in sorted_indices[:num]]
+                           for idx in indices[:num]]
 
     def nearest_neighbor(self,
                          vectors,
@@ -470,6 +472,8 @@ class Reach(object):
 
         """
         vectors = np.array(vectors)
+        if np.ndim(vectors) == 1:
+            vectors = vectors[None, :]
         return list(self._batch(vectors,
                                 batch_size,
                                 num,
@@ -499,7 +503,7 @@ class Reach(object):
         if np.ndim(vectors) == 1:
             norm = np.linalg.norm(vectors)
             if norm == 0:
-                return np.zeros(norm)
+                return np.zeros_like(vectors)
             return vectors / norm
 
         norm = np.linalg.norm(vectors, axis=1)
