@@ -407,11 +407,17 @@ class Reach(object):
         except TypeError:
             pass
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
-        return [x[1:] for x in self._batch(x,
-                                           batch_size,
-                                           num+1,
-                                           show_progressbar,
-                                           return_names)]
+
+        result = []
+
+        for idx in range(0, len(x), batch_size):
+            result.extend([x[1:] for x in self._batch(x[idx:idx+batch_size],
+                                                      batch_size,
+                                                      num+1,
+                                                      show_progressbar,
+                                                      return_names)])
+
+        return result
 
     def _batch(self, vectors, batch_size, num, show_progressbar, return_names):
         """Batched cosine distance."""
@@ -476,11 +482,17 @@ class Reach(object):
         vectors = np.array(vectors)
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
-        return list(self._batch(vectors,
-                                batch_size,
-                                num,
-                                show_progressbar,
-                                return_names))
+
+        result = []
+
+        for idx in range(0, len(vectors), batch_size):
+            result.extend(self._batch(vectors[idx:idx+batch_size],
+                                      batch_size,
+                                      num+1,
+                                      show_progressbar,
+                                      return_names))
+
+        return result
 
     @staticmethod
     def normalize(vectors):
