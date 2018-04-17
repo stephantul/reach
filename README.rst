@@ -23,12 +23,12 @@ Example
 
   from reach import Reach
 
-
-  # Word2vec style: with header.
-  r = Reach.load("path/to/embeddings", header=True)
-
-  # Glove style: without header.
-  r = Reach.load("path/to/embeddings", header=False)
+  # Load from a .vec or .txt file
+  # unk_word specifies which token is the "unknown" token.
+  # If this is token is not in your vector space, it is added as an extra word
+  # and a corresponding zero vector.
+  # If it is in your word, it is used.
+  r = Reach.load("path/to/embeddings", unk_word="UNK")
 
   # Alternatively, if you have a matrix, you can directly
   # input it.
