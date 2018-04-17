@@ -427,14 +427,16 @@ class Reach(object):
             if num == 1:
                 sorted_indices = np.argmax(distances, 1)[:, None]
             else:
-                sorted_indices = np.argsort(-distances, 1)
+                sorted_indices = np.argpartition(-distances, kth=num, axis=1)
+                sorted_indices = sorted_indices[:, :num]
             for lidx, indices in enumerate(sorted_indices):
+                dists = distances[lidx, indices]
                 if return_names:
-                    yield [(self.indices[idx], distances[lidx, idx])
-                           for idx in indices[:num]]
+                    dindex = np.argsort(-dists)
+                    yield [(self.indices[indices[d]], dists[d])
+                           for d in dindex]
                 else:
-                    yield [distances[lidx, idx]
-                           for idx in indices[:num]]
+                    yield np.sort(-dists)
 
     def nearest_neighbor(self,
                          vectors,
