@@ -389,7 +389,7 @@ class Reach(object):
 
         Returns
         -------
-        sim : list of tuples.
+        sim : array
             For each items in the input the num most similar items are returned
             in the form of (NAME, DISTANCE) tuples. If return_names is false,
             the returned list just contains distances.
@@ -408,41 +408,14 @@ class Reach(object):
             pass
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
 
-        result = []
+        result = self._batch(x,
+                             batch_size,
+                             num+1,
+                             show_progressbar,
+                             return_names)
 
-        for idx in range(0, len(x), batch_size):
-            result.extend([x[1:] for x in self._batch(x[idx:idx+batch_size],
-                                                      batch_size,
-                                                      num+1,
-                                                      show_progressbar,
-                                                      return_names)])
-
-        return result
-
-    def _batch(self, vectors, batch_size, num, show_progressbar, return_names):
-        """Batched cosine distance."""
-        vectors = self.normalize(vectors)
-
-        # Single transpose, makes things faster.
-        normed_transpose = self.norm_vectors.T
-
-        for i in tqdm(range(0, len(vectors), batch_size),
-                      disable=not show_progressbar):
-
-            distances = vectors[i: i+batch_size].dot(normed_transpose)
-            if num == 1:
-                sorted_indices = np.argmax(distances, 1)[:, None]
-            else:
-                sorted_indices = np.argpartition(-distances, kth=num, axis=1)
-                sorted_indices = sorted_indices[:, :num]
-            for lidx, indices in enumerate(sorted_indices):
-                dists = distances[lidx, indices]
-                if return_names:
-                    dindex = np.argsort(-dists)
-                    yield [(self.indices[indices[d]], dists[d])
-                           for d in dindex]
-                else:
-                    yield np.sort(-dists)
+        # list call consumes the generator.
+        return [x[1:] for x in result]
 
     def nearest_neighbor(self,
                          vectors,
@@ -476,7 +449,8 @@ class Reach(object):
         -------
         sim : list of tuples.
             For each item in the input the num most similar items are returned
-            in the form of (NAME, DISTANCE) tuples.
+            in the form of (NAME, DISTANCE) tuples. If return_names is set to
+            false, only the distances are returned.
 
         """
         vectors = np.array(vectors)
@@ -485,14 +459,45 @@ class Reach(object):
 
         result = []
 
-        for idx in range(0, len(vectors), batch_size):
-            result.extend(self._batch(vectors[idx:idx+batch_size],
-                                      batch_size,
-                                      num+1,
-                                      show_progressbar,
-                                      return_names))
+        result = self._batch(vectors,
+                             batch_size,
+                             num+1,
+                             show_progressbar,
+                             return_names)
 
-        return result
+        return list(result)
+
+    def _batch(self,
+               vectors,
+               batch_size,
+               num,
+               show_progressbar,
+               return_names):
+        """Batched cosine distance."""
+        vectors = self.normalize(vectors)
+
+        # Single transpose, makes things faster.
+        reference_transposed = self.norm_vectors.T
+
+        for i in tqdm(range(0, len(vectors), batch_size),
+                      disable=not show_progressbar):
+
+            distances = vectors[i: i+batch_size].dot(reference_transposed)
+            # For safety we clip
+            distances = np.clip(distances, a_min=.0, a_max=1.0)
+            if num == 1:
+                sorted_indices = np.argmax(distances, 1)[:, None]
+            else:
+                sorted_indices = np.argpartition(-distances, kth=num, axis=1)
+                sorted_indices = sorted_indices[:, :num]
+            for lidx, indices in enumerate(sorted_indices):
+                dists = distances[lidx, indices]
+                if return_names:
+                    dindex = np.argsort(-dists)
+                    yield [(self.indices[indices[d]], dists[d])
+                           for d in dindex]
+                else:
+                    yield list(-1 * np.sort(-dists))
 
     @staticmethod
     def normalize(vectors):
@@ -539,8 +544,8 @@ class Reach(object):
     def vector_similarity(self, vector, items):
         """Compute the similarity between a vector and a set of items."""
         vector = self.normalize(vector)
-        items = np.stack([self.norm_vectors[self.items[x]] for x in items])
-        return self._similarity(vector, items)[0]
+        items_vec = np.stack([self.norm_vectors[self.items[x]] for x in items])
+        return vector.dot(items_vec.T)
 
     def similarity(self, i1, i2):
         """
@@ -559,13 +564,19 @@ class Reach(object):
             An array of similarity scores between 1 and 0.
 
         """
-        i1 = np.stack([self.norm_vectors[self.items[x]] for x in i1])
-        i2 = np.stack([self.norm_vectors[self.items[x]] for x in i2])
-        return self._similarity(i1, i2)
-
-    def _similarity(self, v1, v2):
-        """Return the similarity between two vectors."""
-        return v1.dot(v2.T)
+        try:
+            if i1 in self.items:
+                i1 = [i1]
+        except TypeError:
+            pass
+        try:
+            if i2 in self.items:
+                i2 = [i2]
+        except TypeError:
+            pass
+        i1_vec = np.stack([self.norm_vectors[self.items[x]] for x in i1])
+        i2_vec = np.stack([self.norm_vectors[self.items[x]] for x in i2])
+        return i1_vec.dot(i2_vec.T)
 
     def prune(self, wordlist):
         """
