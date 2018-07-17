@@ -143,7 +143,8 @@ class Reach(object):
              wordlist=(),
              num_to_load=None,
              truncate_embeddings=None,
-             unk_word=None):
+             unk_word=None,
+             sep=" "):
         r"""
         Read a file in word2vec .txt format.
 
@@ -181,7 +182,8 @@ class Reach(object):
         vectors, items = Reach._load(pathtovector,
                                      wordlist,
                                      num_to_load,
-                                     truncate_embeddings)
+                                     truncate_embeddings,
+                                     sep)
         if unk_word is not None:
             if unk_word not in set(items):
                 unk_vec = np.zeros((1, vectors.shape[1]))
@@ -202,7 +204,8 @@ class Reach(object):
     def _load(pathtovector,
               wordlist,
               num_to_load,
-              truncate_embeddings):
+              truncate_embeddings,
+              sep):
         """Load a matrix and wordlist from a .vec file."""
         vectors = []
         addedwords = set()
@@ -217,14 +220,19 @@ class Reach(object):
 
         firstline = open(pathtovector).readline()
         try:
-            num, size = firstline.split()
+            num, size = firstline.split(sep)
             num, size = int(num), int(size)
             logger.info("Vector space: {} by {}".format(num, size))
             header = True
         except ValueError:
-            size = len(firstline.split()) - 1
+            size = len(firstline.split(sep)) - 1
             logger.info("Vector space: {} dim, # items unknown".format(size))
-            header = False
+            word, rest = firstline.split(sep, 1)
+            # If the first line is correctly parseable, set header to False.
+            if np.fromstring(rest, sep=sep):
+                header = False
+            else:
+                header = True
 
         if truncate_embeddings is None or truncate_embeddings == 0:
             truncate_embeddings = size
@@ -234,23 +242,24 @@ class Reach(object):
             if header and idx == 0:
                 continue
 
-            word, rest = line.rstrip(" \n").split(" ", 1)
+            word, rest = line.rstrip(" \n").split(sep, 1)
 
             if wordlist and word not in wordlist:
                 continue
 
             if word in addedwords:
-                raise ValueError("Duplicate: {} was in the "
-                                 "vector space twice".format(line[0]))
+                raise ValueError("Duplicate: {} on line {} was in the "
+                                 "vector space twice".format(word, idx))
 
-            if len(rest.split()) != size:
+            if len(rest.split(sep)) != size:
                 raise ValueError("Incorrect input at index {}, size "
                                  "is {}, expected "
-                                 "{}".format(idx+1, len(rest.split()), size))
+                                 "{}".format(idx+1,
+                                             len(rest.split(sep)), size))
 
             words.append(word)
             addedwords.add(word)
-            vectors.append(np.fromstring(rest, sep=" ")[:truncate_embeddings])
+            vectors.append(np.fromstring(rest, sep=sep)[:truncate_embeddings])
 
             if num_to_load is not None and len(addedwords) >= num_to_load:
                 break
