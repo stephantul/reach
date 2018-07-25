@@ -203,9 +203,9 @@ class Reach(object):
     @staticmethod
     def _load(pathtovector,
               wordlist,
-              num_to_load,
-              truncate_embeddings,
-              sep):
+              num_to_load=None,
+              truncate_embeddings=None,
+              sep=" "):
         """Load a matrix and wordlist from a .vec file."""
         vectors = []
         addedwords = set()
