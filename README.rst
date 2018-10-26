@@ -11,8 +11,7 @@ The assumption behind ``reach`` is a no-hassle approach to featurization. The
 vectorization and bow approaches know how to deal with OOV words, removing
 these problems from your code.
 
-``reach`` also includes nearest neighbor calculation for arbitrary vectors,
-and composition functions for lists of items.
+``reach`` also includes nearest neighbor calculation for arbitrary vectors.
 
 Example
 '''''''
@@ -27,16 +26,16 @@ Example
   # unk_word specifies which token is the "unknown" token.
   # If this is token is not in your vector space, it is added as an extra word
   # and a corresponding zero vector.
-  # If it is in your word, it is used.
+  # If it is in your embedding space, it is used.
   r = Reach.load("path/to/embeddings", unk_word="UNK")
 
   # Alternatively, if you have a matrix, you can directly
   # input it.
 
   # Stand-in for word embeddings
-  mtr = np.zeros((2, 300))
-  words = ["cat", "dog"]
-  r = Reach(mtr, words)
+  mtr = np.random.rand(8, 300)
+  words = ["UNK", "cat", "dog", "best", "creature", "alive", "span", "prose"]
+  r = Reach(mtr, words, unk_index=0)
 
   # Get vectors through indexing.
   # Throws a KeyError if a word is not present.
@@ -46,7 +45,7 @@ Example
   similarity = r.similarity('cat', 'dog')
 
   # Find most similar.
-  similarities = r.most_similar('cat', 5)
+  similarities = r.most_similar('cat', 2)
 
   sentence = 'a dog is the best creature alive'.split()
   corpus = [sentence, sentence, sentence]
