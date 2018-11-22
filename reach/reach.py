@@ -4,7 +4,6 @@ import json
 import numpy as np
 import os
 
-from collections import Counter
 from io import open
 from tqdm import tqdm
 
