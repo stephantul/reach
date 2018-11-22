@@ -6,76 +6,9 @@ import os
 
 from collections import Counter
 from io import open
-from os import path
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
-
-
-class Spreach(object):
-    """
-    Sparse variant of Reach.
-
-    Usable when word embeddings have been transformed
-    into a sparse space with e.g. https://github.com/mfaruqui/sparse-coding.
-
-    Parameters
-    ----------
-    vecp : str
-        System path to vector file location.
-
-    header : bool, optional, default True
-        Indicates if first line should be skipped.
-
-    Attributes
-    ----------
-    vecd : dict
-        Sparse dictionary representation of word embedding matrix where key
-        is a vocab word and value a dictionary with indices and values.
-
-    """
-
-    def __init__(self, vecp, header=True):
-        """Load file, pop header if necessary."""
-        self.vecd = {}
-        jsf = vecp.replace('.txt', '.json')
-        if not path.isfile(jsf):
-            self._load(open(vecp, encoding='utf-8'), header)
-            json.dump(self.vecd, open(jsf, 'w'))
-        else:
-            self.vecd = json.load(open(jsf))
-
-    def _load(self, vecf, header):
-        """Load data to vec dictionary."""
-        for i, line in enumerate(vecf):
-            if not i and header:
-                continue
-            row = line.split()
-            key = row.pop(0)
-            self.vecd[key] = {str(i): float(k) for i, k in
-                              enumerate(row) if float(k)}
-        vecf.close()
-
-    def transform(self, tokens):
-        """Transform string or list of tokens to vectors.
-
-        Parameters
-        ----------
-        tokens : str or list of strings
-            Tokens that will be looked up in the vocab for their embedding.
-
-        Returns
-        -------
-        c : dict
-            Sparse vector summed across words.
-
-        """
-        if isinstance(tokens, str):
-            tokens = tokens.split()
-        c = Counter()
-        for token in tokens:
-            c += Counter(self.vecd.get(token, {'OOV': 0.01}))
-        return dict(c)
 
 
 class Reach(object):
@@ -218,7 +151,7 @@ class Reach(object):
 
         logger.info("Loading {0}".format(pathtovector))
 
-        firstline = open(pathtovector).readline()
+        firstline = open(pathtovector).readline().strip()
         try:
             num, size = firstline.split(sep)
             num, size = int(num), int(size)
@@ -229,10 +162,7 @@ class Reach(object):
             logger.info("Vector space: {} dim, # items unknown".format(size))
             word, rest = firstline.split(sep, 1)
             # If the first line is correctly parseable, set header to False.
-            if np.fromstring(rest, sep=sep):
-                header = False
-            else:
-                header = True
+            header = False
 
         if truncate_embeddings is None or truncate_embeddings == 0:
             truncate_embeddings = size
@@ -426,6 +356,59 @@ class Reach(object):
         # list call consumes the generator.
         return [x[1:] for x in result]
 
+    def threshold(self,
+                  items,
+                  threshold=.5,
+                  batch_size=100,
+                  show_progressbar=False,
+                  return_names=True):
+        """
+        Return all items whose similarity is higher than threshold.
+
+        Parameters
+        ----------
+        items : list of objects or a single object.
+            The items to get the most similar items to.
+        threshold : float, optional, default .5
+            The radius within which to retrieve items.
+        batch_size : int, optional, default 100.
+            The batch size to use. 100 is a good default option. Increasing
+            the batch size may increase the speed.
+        show_progressbar : bool, optional, default False
+            Whether to show a progressbar.
+        return_names : bool, optional, default True
+            Whether to return the item names, or just the distances.
+
+        Returns
+        -------
+        sim : array
+            For each items in the input the num most similar items are returned
+            in the form of (NAME, DISTANCE) tuples. If return_names is false,
+            the returned list just contains distances.
+
+        """
+        # This line allows users to input single items.
+        # We used to rely on string identities, but we now also allow
+        # anything hashable as keys.
+        # Might fail if a list of passed items is also in the vocabulary.
+        # but I can't think of cases when this would happen, and what
+        # user expectations are.
+        try:
+            if items in self.items:
+                items = [items]
+        except TypeError:
+            pass
+        x = np.stack([self.norm_vectors[self.items[x]] for x in items])
+
+        result = self._threshold_batch(x,
+                                       batch_size,
+                                       threshold,
+                                       show_progressbar,
+                                       return_names)
+
+        # list call consumes the generator.
+        return [x[1:] for x in result]
+
     def nearest_neighbor(self,
                          vectors,
                          num=10,
@@ -475,6 +458,83 @@ class Reach(object):
                              return_names)
 
         return list(result)
+
+    def nearest_neighbor_threshold(self,
+                                   vectors,
+                                   threshold=.5,
+                                   batch_size=100,
+                                   show_progressbar=False,
+                                   return_names=True):
+        """
+        Find the nearest neighbors to some arbitrary vector.
+
+        This function is meant to be used in composition operations. The
+        most_similar function can only handle items that are in vocab, and
+        looks up their vector through a dictionary. Compositions, e.g.
+        "King - man + woman" are necessarily not in the vocabulary.
+
+        Parameters
+        ----------
+        vectors : list of arrays or numpy array
+            The vectors to find the nearest neighbors to.
+        threshold : float, optional, default .5
+            The threshold within to retrieve items.
+        batch_size : int, optional, default 100.
+            The batch size to use. 100 is a good default option. Increasing
+            the batch size may increase speed.
+        show_progressbar : bool, optional, default False
+            Whether to show a progressbar.
+        return_names : bool, optional, default True
+            Whether to return the item names, or just the distances.
+
+        Returns
+        -------
+        sim : list of tuples.
+            For each item in the input the num most similar items are returned
+            in the form of (NAME, DISTANCE) tuples. If return_names is set to
+            false, only the distances are returned.
+
+        """
+        vectors = np.array(vectors)
+        if np.ndim(vectors) == 1:
+            vectors = vectors[None, :]
+
+        result = []
+
+        result = self._threshold_batch(vectors,
+                                       batch_size,
+                                       threshold,
+                                       show_progressbar,
+                                       return_names)
+
+        return list(result)
+
+    def _threshold_batch(self,
+                         vectors,
+                         batch_size,
+                         threshold,
+                         show_progressbar,
+                         return_names):
+        """Batched cosine distance."""
+        vectors = self.normalize(vectors)
+
+        # Single transpose, makes things faster.
+        reference_transposed = self.norm_vectors.T
+
+        for i in tqdm(range(0, len(vectors), batch_size),
+                      disable=not show_progressbar):
+
+            distances = vectors[i: i+batch_size].dot(reference_transposed)
+            # For safety we clip
+            distances = np.clip(distances, a_min=.0, a_max=1.0)
+            for lidx, dists in enumerate(distances):
+                indices = np.flatnonzero(dists >= threshold)
+                sorted_indices = indices[np.argsort(-dists[indices])]
+                if return_names:
+                    yield [(self.indices[d], dists[d])
+                           for d in sorted_indices]
+                else:
+                    yield list(dists[sorted_indices])
 
     def _batch(self,
                vectors,
