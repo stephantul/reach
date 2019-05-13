@@ -134,7 +134,7 @@ class Reach(object):
 
     @staticmethod
     def _load(pathtovector,
-              wordlist,
+              wordlist=(),
               num_to_load=None,
               truncate_embeddings=None,
               sep=" "):
