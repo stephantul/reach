@@ -587,6 +587,7 @@ class Reach(object):
             The input vectors, normalized to unit length.
 
         """
+        vectors = np.copy(vectors)
         if np.ndim(vectors) == 1:
             norm = np.linalg.norm(vectors)
             if norm == 0:
