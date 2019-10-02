@@ -27,6 +27,9 @@ class Reach(object):
     name : string, optional
         A string giving the name of the current reach. Only useful if you
         have multiple spaces and want to keep track of them.
+    unk_index : bool or None, optional, default None
+        The index of the UNK item. If this is None, any attempts at vectorizing
+        OOV items will throw an error.
 
     Attributes
     ----------
@@ -64,11 +67,24 @@ class Reach(object):
         self.indices = {v: k for k, v in self.items.items()}
 
         self.vectors = np.asarray(vectors)
-        self.norm_vectors = self.normalize(self.vectors)
         self.unk_index = unk_index
 
-        self.size = self.vectors.shape[1]
         self.name = name
+
+    @property
+    def size(self):
+        return self.vectors.shape[1]
+
+    @property
+    def vectors(self):
+        return self._vectors
+
+    @vectors.setter
+    def vectors(self, x):
+        x = np.array(x)
+        assert np.ndim(x) == 2 and x.shape[0] == len(self.items)
+        self._vectors = x
+        self.norm_vectors = self.normalize(x)
 
     @staticmethod
     def load(pathtovector,
