@@ -663,9 +663,9 @@ class Reach(object):
         i2_vec = np.stack([self.norm_vectors[self.items[x]] for x in i2])
         return i1_vec.dot(i2_vec.T)
 
-    def prune(self, wordlist):
+    def intersect(self, wordlist):
         """
-        Prune the current reach instance by removing items.
+        Intersect a reach instance with a wordlist.
 
         Parameters
         ----------
@@ -676,18 +676,18 @@ class Reach(object):
 
         """
         # Remove duplicates
-        wordlist = set(wordlist).intersection(set(self.items.keys()))
-        indices = [self.items[w] for w in wordlist if w in self.items]
-        if self.unk_index is not None and self.unk_index not in indices:
-            raise ValueError("Your unknown item is not in your list of items. "
-                             "Set it to None before pruning, or pass your "
-                             "unknown item.")
-        self.vectors = self.vectors[indices]
-        self.norm_vectors = self.norm_vectors[indices]
-        self.items = {w: idx for idx, w in enumerate(wordlist)}
-        self.indices = {v: k for k, v in self.items.items()}
+        wordlist = list(set(wordlist).intersection(set(self.items.keys())))
         if self.unk_index is not None:
-            self.unk_index = self.items[wordlist[self.unk_index]]
+            unk_word = self.indices[self.unk_index]
+            try:
+                unk_index = wordlist.index(unk_word)
+            except ValueError:
+                unk_index = None
+        else:
+            unk_index = None
+        indices = [self.items[w] for w in wordlist]
+        vectors = self.vectors[indices]
+        return Reach(vectors, wordlist, unk_index=unk_index)
 
     def save(self, path, write_header=True):
         """
