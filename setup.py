@@ -6,7 +6,7 @@ from setuptools import find_packages
 
 
 setup(name='reach',
-      version='3.2.0',
+      version='3.2.1',
       description='A light-weight package for working with pre-trained'
                   ' word embeddings',
       author='Stéphan Tulkens',
@@ -14,7 +14,7 @@ setup(name='reach',
       url='https://github.com/stephantul/reach',
       license='MIT',
       packages=find_packages(exclude=['examples']),
-      install_requires=['numpy>=1.11.0'],
+      install_requires=['numpy>=1.11.0', 'tqdm', 'setuptools'],
       classifiers=[
           'Intended Audience :: Developers',
           'Programming Language :: Python :: 2',
