@@ -675,18 +675,16 @@ class Reach(object):
             wordlist, but not in the reach instance are ignored.
 
         """
-        # Remove duplicates
-        wordlist = list(set(wordlist).intersection(set(self.items.keys())))
-        if self.unk_index is not None:
-            unk_word = self.indices[self.unk_index]
-            try:
-                unk_index = wordlist.index(unk_word)
-            except ValueError:
-                unk_index = None
-        else:
-            unk_index = None
-        indices = [self.items[w] for w in wordlist]
+        # Remove duplicates and oov words.
+        wordlist = set(self.items) & set(wordlist)
+        # Get indices of intersection.
+        indices = np.sort([self.items[x] for x in wordlist])
+        # Set unk_index to None if it is None or if it is not in indices
+        unk_index = self.unk_index if self.unk_index in indices else None
+        # Index vectors
         vectors = self.vectors[indices]
+        # Index words
+        wordlist = [self.indices[x] for x in indices]
         return Reach(vectors, wordlist, unk_index=unk_index)
 
     def save(self, path, write_header=True):
