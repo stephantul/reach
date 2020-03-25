@@ -24,10 +24,10 @@ class Reach(object):
     items : list
         A list of items. Length must be equal to the number of vectors, and
         aligned with the vectors.
-    name : string, optional
+    name : string, optional, default ''
         A string giving the name of the current reach. Only useful if you
         have multiple spaces and want to keep track of them.
-    unk_index : bool or None, optional, default None
+    unk_index : int or None, optional, default None
         The index of the UNK item. If this is None, any attempts at vectorizing
         OOV items will throw an error.
 
@@ -39,11 +39,11 @@ class Reach(object):
         A mapping from ids to items.
     vectors : numpy array
         The array representing the vector space.
-    norm_vectors : numpy array
-        A normalized version of the vector space.
     unk_index : int
         The integer index of your unknown glyph. This glyph will be inserted
         into your BoW space whenever an unknown item is encountered.
+    norm_vectors : numpy array
+        A normalized version of the vector space.
     size : int
         The dimensionality of the vector space.
     name : string
@@ -464,15 +464,11 @@ class Reach(object):
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
-        result = []
-
-        result = self._batch(vectors,
-                             batch_size,
-                             num+1,
-                             show_progressbar,
-                             return_names)
-
-        return list(result)
+        return list(self._batch(vectors,
+                                batch_size,
+                                num,
+                                show_progressbar,
+                                return_names))
 
     def nearest_neighbor_threshold(self,
                                    vectors,
@@ -514,15 +510,11 @@ class Reach(object):
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
-        result = []
-
-        result = self._threshold_batch(vectors,
-                                       batch_size,
-                                       threshold,
-                                       show_progressbar,
-                                       return_names)
-
-        return list(result)
+        return list(self._threshold_batch(vectors,
+                                          batch_size,
+                                          threshold,
+                                          show_progressbar,
+                                          return_names))
 
     def _threshold_batch(self,
                          vectors,
@@ -558,6 +550,8 @@ class Reach(object):
                show_progressbar,
                return_names):
         """Batched cosine distance."""
+        if num < 1:
+            raise ValueError("num should be >= 1, is now {}".format(num))
         vectors = self.normalize(vectors)
 
         # Single transpose, makes things faster.
