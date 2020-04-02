@@ -57,7 +57,7 @@ class Reach(object):
             raise ValueError("Your vector space and list of items are not "
                              "the same length: "
                              "{} != {}".format(len(vectors), len(items)))
-        if isinstance(items, dict) or isinstance(items, set):
+        if isinstance(items, (dict, set)):
             raise ValueError("Your item list is a set or dict, and might not "
                              "retain order in the conversion to internal look"
                              "-ups. Please convert it to list and check the "
