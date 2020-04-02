@@ -523,25 +523,19 @@ class Reach(object):
                          show_progressbar,
                          return_names):
         """Batched cosine distance."""
-        vectors = self.normalize(vectors)
-
-        # Single transpose, makes things faster.
-        reference_transposed = self.norm_vectors.T
-
         for i in tqdm(range(0, len(vectors), batch_size),
                       disable=not show_progressbar):
 
-            distances = vectors[i: i+batch_size].dot(reference_transposed)
-            # For safety we clip
-            distances = np.clip(distances, a_min=.0, a_max=1.0)
-            for lidx, dists in enumerate(distances):
-                indices = np.flatnonzero(dists >= threshold)
-                sorted_indices = indices[np.argsort(-dists[indices])]
+            batch = vectors[i: i+batch_size]
+            similarities = self._sim(batch, self.norm_vectors)
+            for lidx, sims in enumerate(similarities):
+                indices = np.flatnonzero(sims >= threshold)
+                sorted_indices = indices[np.argsort(-sims[indices])]
                 if return_names:
-                    yield [(self.indices[d], dists[d])
+                    yield [(self.indices[d], sims[d])
                            for d in sorted_indices]
                 else:
-                    yield list(dists[sorted_indices])
+                    yield list(sims[sorted_indices])
 
     def _batch(self,
                vectors,
@@ -552,30 +546,27 @@ class Reach(object):
         """Batched cosine distance."""
         if num < 1:
             raise ValueError("num should be >= 1, is now {}".format(num))
-        vectors = self.normalize(vectors)
-
-        # Single transpose, makes things faster.
-        reference_transposed = self.norm_vectors.T
 
         for i in tqdm(range(0, len(vectors), batch_size),
                       disable=not show_progressbar):
 
-            distances = vectors[i: i+batch_size].dot(reference_transposed)
-            # For safety we clip
-            distances = np.clip(distances, a_min=.0, a_max=1.0)
+            batch = vectors[i: i+batch_size]
+            similarities = self._sim(batch, self.norm_vectors)
             if num == 1:
-                sorted_indices = np.argmax(distances, 1)[:, None]
+                sorted_indices = np.argmax(similarities, 1)[:, None]
             else:
-                sorted_indices = np.argpartition(-distances, kth=num, axis=1)
+                sorted_indices = np.argpartition(-similarities,
+                                                 kth=num,
+                                                 axis=1)
                 sorted_indices = sorted_indices[:, :num]
             for lidx, indices in enumerate(sorted_indices):
-                dists = distances[lidx, indices]
+                sims = similarities[lidx, indices]
                 if return_names:
-                    dindex = np.argsort(-dists)
-                    yield [(self.indices[indices[d]], dists[d])
+                    dindex = np.argsort(-sims)
+                    yield [(self.indices[indices[d]], sims[d])
                            for d in dindex]
                 else:
-                    yield list(-1 * np.sort(-dists))
+                    yield list(-1 * np.sort(-sims))
 
     @staticmethod
     def normalize(vectors):
@@ -622,9 +613,13 @@ class Reach(object):
 
     def vector_similarity(self, vector, items):
         """Compute the similarity between a vector and a set of items."""
-        vector = self.normalize(vector)
         items_vec = np.stack([self.norm_vectors[self.items[x]] for x in items])
-        return vector.dot(items_vec.T)
+        return self._sim(vector, items_vec)
+
+    def _sim(self, x, y):
+        """Distance function."""
+        sim = self.normalize(x).dot(y.T)
+        return np.clip(sim, a_min=.0, a_max=1.0)
 
     def similarity(self, i1, i2):
         """
@@ -655,7 +650,7 @@ class Reach(object):
             pass
         i1_vec = np.stack([self.norm_vectors[self.items[x]] for x in i1])
         i2_vec = np.stack([self.norm_vectors[self.items[x]] for x in i2])
-        return i1_vec.dot(i2_vec.T)
+        return self._sim(i1_vec, i2_vec)
 
     def intersect(self, wordlist):
         """
