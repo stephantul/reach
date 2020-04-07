@@ -86,13 +86,15 @@ class Reach(object):
         self._vectors = x
         self.norm_vectors = self.normalize(x)
 
-    @staticmethod
-    def load(pathtovector,
+    @classmethod
+    def load(cls,
+             pathtovector,
              wordlist=(),
              num_to_load=None,
              truncate_embeddings=None,
              unk_word=None,
-             sep=" "):
+             sep=" ",
+             **kwargs):
         r"""
         Read a file in word2vec .txt format.
 
@@ -143,10 +145,11 @@ class Reach(object):
         else:
             unk_index = None
 
-        return Reach(vectors,
-                     items,
-                     name=os.path.split(pathtovector)[-1],
-                     unk_index=unk_index)
+        return cls(vectors,
+                   items,
+                   name=os.path.split(pathtovector)[-1],
+                   unk_index=unk_index,
+                   **kwargs)
 
     @staticmethod
     def _load(pathtovector,
@@ -617,7 +620,29 @@ class Reach(object):
         return self._sim(vector, items_vec)
 
     def _sim(self, x, y):
-        """Distance function."""
+        """
+        Cosine similarity function.
+
+        For convenience, we assume y is pre-normalized. This will almost always
+        be the case, since y is the set of, or a subset of, the reference
+        vectors.
+
+        Parameters
+        ----------
+        x : (N, D) numpy array
+            One set of items
+        y : (M, D) numpy array
+            Another set of items. A faster code path is available is y is the
+            set of vectors of this instance (i.e. `r._vectors is y`).
+
+        Returns
+        -------
+        sim : (N, M) numpy array
+            An array containing the similarity in (0, 1) between all items in
+            x and y. The cosine similarity normally ranges from (-1, 1), but
+            following other implementations, we clip to 0.
+
+        """
         sim = self.normalize(x).dot(y.T)
         return np.clip(sim, a_min=.0, a_max=1.0)
 
