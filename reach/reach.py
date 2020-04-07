@@ -780,3 +780,152 @@ class Reach(object):
         words, unk_index, name = it["items"], it["unk_index"], it["name"]
         vectors = np.load(open("{}_vectors.npy".format(filename), 'rb'))
         return words, unk_index, name, vectors
+
+
+class MahalanobisReach(Reach):
+    """
+    Work with vector representations of items.
+
+    Supports functions for calculating fast batched similarity
+    between items or composite representations of items.
+
+    Parameters
+    ----------
+    vectors : numpy array
+        The vector space.
+    items : list
+        A list of items. Length must be equal to the number of vectors, and
+        aligned with the vectors.
+    name : string, optional, default ''
+        A string giving the name of the current reach. Only useful if you
+        have multiple spaces and want to keep track of them.
+    unk_index : int or None, optional, default None
+        The index of the UNK item. If this is None, any attempts at vectorizing
+        OOV items will throw an error.
+    sigma : float
+        A positive number that determines the width of the RBF kernel.
+        Values near 0 will produce near-uniform distributions, and will result
+        in everything being similar to each other. Values near 1, on the other
+        hand will assign a near-0 similarity to almost anything, i.e., make the
+        space orthogonal.
+
+    Attributes
+    ----------
+    items : dict
+        A mapping from items to ids.
+    indices : dict
+        A mapping from ids to items.
+    vectors : numpy array
+        The array representing the vector space.
+    unk_index : int
+        The integer index of your unknown glyph. This glyph will be inserted
+        into your BoW space whenever an unknown item is encountered.
+    norm_vectors : numpy array
+        A normalized version of the vector space.
+    size : int
+        The dimensionality of the vector space.
+    name : string
+        The name of the Reach instance.
+
+    """
+
+    def __init__(self,
+                 vectors,
+                 items,
+                 sigma=None,
+                 name="",
+                 unk_index=None):
+        if sigma is None:
+            # Sensible default
+            self.sigma = 1 / vectors.shape[1]
+        else:
+            self.sigma = sigma
+        super().__init__(vectors, items, name, unk_index)
+
+    @property
+    def vectors(self):
+        return self._vectors
+
+    @vectors.setter
+    def vectors(self, x):
+        x = np.array(x)
+        assert np.ndim(x) == 2 and x.shape[0] == len(self.items)
+        self._vectors = x
+        self.inv_cov = np.linalg.inv(np.cov(self._vectors, rowvar=False))
+        self.norm_vectors = x
+        self._vec_norm_sq = self._squared_norm(self._vectors)
+
+    def _squared_norm(self, x):
+        """Return the squared norm of a vector."""
+        x = x.dot(self.inv_cov) * x
+        if np.ndim(x) == 1:
+            return np.sum(x)
+        return np.sum(x, 1)
+
+    def _sim(self, x, y):
+        """
+        The similarity function.
+
+        This function first calculates the distance between every element in
+        x and y, and then turns this distance into a similarity by computing
+        the RBF kernel over the distances.
+
+        Parameters
+        ----------
+        x : (N, D) numpy array
+            One set of items
+        y : (M, D) numpy array
+            Another set of items. A faster code path is available is y is the
+            set of vectors of this instance (i.e. `r._vectors is y`).
+
+        Returns
+        -------
+        sim : (N, M) numpy array
+            An array containing the similarity in (0, 1) between all items in
+            x and y.
+
+        """
+        dist = self._dist(x, y) * self.sigma
+        return np.exp(-dist)
+
+    def _dist(self, x, y):
+        """Convenience for testing."""
+        if y is self._vectors:
+            y_norm = self._vec_norm_sq
+        else:
+            y_norm = self._squared_norm(y)
+        x_norm = self._squared_norm(x)
+        d = 2.0 * np.dot(x.dot(self.inv_cov), y.T)
+        return x_norm[:, None] + y_norm[None, :] - d
+
+
+class EuclideanReach(MahalanobisReach):
+
+    @property
+    def vectors(self):
+        return self._vectors
+
+    @vectors.setter
+    def vectors(self, x):
+        x = np.array(x)
+        assert np.ndim(x) == 2 and x.shape[0] == len(self.items)
+        self._vectors = x
+        self.norm_vectors = x
+        self._vec_norm_sq = self._squared_norm(self._vectors)
+
+    def _squared_norm(self, x):
+        """Return the squared norm of a vector."""
+        x = x ** 2
+        if np.ndim(x) == 1:
+            return np.sum(x)
+        return np.sum(x, 1)
+
+    def _dist(self, x, y):
+        """Convenience for testing."""
+        if y is self._vectors:
+            y_norm = self._vec_norm_sq
+        else:
+            y_norm = self._squared_norm(y)
+        x_norm = self._squared_norm(x)
+        d = 2.0 * np.dot(x, y.T)
+        return x_norm[:, None] + y_norm[None, :] - d
