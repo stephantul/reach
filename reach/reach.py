@@ -587,11 +587,10 @@ class Reach(object):
 
         Returns
         -------
-        vectors : np.array
-            The input vectors, normalized to unit length.
+        norm_vectors : np.array
+            A copy of the input vectors, normalized to unit length.
 
         """
-        vectors = np.copy(vectors)
         if np.ndim(vectors) == 1:
             norm = np.linalg.norm(vectors)
             if norm == 0:
@@ -601,15 +600,9 @@ class Reach(object):
         norm = np.linalg.norm(vectors, axis=1)
 
         if np.any(norm == 0):
-
             nonzero = norm > 0
-
             result = np.zeros_like(vectors)
-
-            n = norm[nonzero]
-            p = vectors[nonzero]
-            result[nonzero] = p / n[:, None]
-
+            result[nonzero] = vectors[nonzero] / norm[nonzero, None]
             return result
         else:
             return vectors / norm[:, None]
