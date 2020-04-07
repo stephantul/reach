@@ -922,3 +922,66 @@ class EuclideanReach(MahalanobisReach):
         x_norm = self._squared_norm(x)
         d = 2.0 * np.dot(x, y.T)
         return x_norm[:, None] + y_norm[None, :] - d
+
+
+class SpearmanReach(Reach):
+
+    @property
+    def vectors(self):
+        return self._vectors
+
+    @vectors.setter
+    def vectors(self, x):
+        x = np.array(x)
+        assert np.ndim(x) == 2 and x.shape[0] == len(self.items)
+        self._vectors = x
+        self.norm_vectors = np.argsort(x, axis=1).argsort()
+        self.norm_y = np.sum(self.norm_vectors ** 2, 1)
+        self._n = self.size * ((self.size ** 2) - 1)
+
+    def _sim(self, x, rank_y):
+        """
+        Calculate the spearman correlation between two arrays of items.
+
+        For speed, it is assumed that rank_y is already a list of ranks.
+        The ranks of x are computed on-the-fly. This makes sense because in
+        almost all cases where you would want to use this, the set of reference
+        vectors is known beforehand.
+
+        We use a simplified formula for calculating spearman, which includes
+        two small optimizations. First, we never calculate the full difference
+        between the two matrices, because this requires a (N, M, D) matrix.
+        We thus use the same speedup as used in the calculation of the squared
+        euclidean distance, and calculate the correlation as the norm of x
+        + the norm of y + 2 * the dot product of x and y. This is much faster.
+        Second, we use a well-known formula for bypassing the pearson
+        correlation in the calculation of the spearman correlation.
+        This formula does not work if there are ties in the ranking order, but,
+        since we are dealing with real-valued vector, any tie is almost
+        certainly the result of chance.
+
+        Parameters
+        ----------
+        x : (N, D) numpy array
+            One set of vectors
+        rank_y : (M, D) numpy array
+            Another set of items, converted to ranks. A rank is simply a list
+            of indices, where indices corresponding to lower values are ranked
+            lower in the list.
+
+        Returns
+        -------
+        sim : (N, M) numpy array
+            The spearman correlation between all items in x and rank_y.
+
+        """
+        rank_x = np.argsort(x, axis=1).argsort()
+        if rank_y is self.norm_vectors:
+            norm_y = self.norm_y
+        else:
+            norm_y = np.sum(rank_y ** 2, 1)
+
+        norm_x = np.sum(rank_x ** 2, 1)
+        diff = norm_x[:, None] + norm_y[None, :] - 2 * rank_x.dot(rank_y.T)
+
+        return 1 - (6 * diff) / self._n
