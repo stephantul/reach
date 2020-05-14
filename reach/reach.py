@@ -92,7 +92,9 @@ class Reach(object):
              num_to_load=None,
              truncate_embeddings=None,
              unk_word=None,
-             sep=" "):
+             sep=" ",
+             recover_from_errors=False,
+             **kwargs):
         r"""
         Read a file in word2vec .txt format.
 
@@ -120,6 +122,9 @@ class Reach(object):
             The object to treat as UNK in your vector space. If this is not
             in your items dictionary after loading, we add it with a zero
             vector.
+        recover_from_errors : bool
+            If this flag is True, the model will continue after encountering
+            duplicates or other errors.
 
         Returns
         -------
@@ -131,7 +136,8 @@ class Reach(object):
                                      wordlist,
                                      num_to_load,
                                      truncate_embeddings,
-                                     sep)
+                                     sep,
+                                     recover_from_errors)
         if unk_word is not None:
             if unk_word not in set(items):
                 unk_vec = np.zeros((1, vectors.shape[1]))
@@ -150,10 +156,11 @@ class Reach(object):
 
     @staticmethod
     def _load(pathtovector,
-              wordlist=(),
-              num_to_load=None,
-              truncate_embeddings=None,
-              sep=" "):
+              wordlist,
+              num_to_load,
+              truncate_embeddings,
+              sep,
+              recover_from_errors):
         """Load a matrix and wordlist from a .vec file."""
         vectors = []
         addedwords = set()
@@ -193,14 +200,22 @@ class Reach(object):
                 continue
 
             if word in addedwords:
-                raise ValueError("Duplicate: {} on line {} was in the "
-                                 "vector space twice".format(word, idx))
+                e = """Duplicate: {} on line {} was in the
+                    vector space twice""".format(word, idx)
+                if recover_from_errors:
+                    print(e)
+                    continue
+                raise ValueError(e)
 
             if len(rest.split(sep)) != size:
-                raise ValueError("Incorrect input at index {}, size "
-                                 "is {}, expected "
-                                 "{}".format(idx+1,
-                                             len(rest.split(sep)), size))
+                e = """Incorrect input at index {}, size
+                       is {}, expected {}""".format(idx+1,
+                                                    len(rest.split(sep)),
+                                                    size)
+                if recover_from_errors:
+                    print(e)
+                    continue
+                raise ValueError()
 
             words.append(word)
             addedwords.add(word)
