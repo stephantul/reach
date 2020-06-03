@@ -5,6 +5,7 @@ import numpy as np
 import os
 
 from io import open
+from itertools import tee
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -132,6 +133,12 @@ class Reach(object):
             An initialized Reach instance.
 
         """
+        if isinstance(pathtovector, str):
+            name = os.path.split(pathtovector)[-1]
+            pathtovector = open(pathtovector, 'rb')
+        else:
+            name = id(pathtovector)
+
         vectors, items = Reach._load(pathtovector,
                                      wordlist,
                                      num_to_load,
@@ -151,11 +158,11 @@ class Reach(object):
 
         return Reach(vectors,
                      items,
-                     name=os.path.split(pathtovector)[-1],
+                     name=name,
                      unk_index=unk_index)
 
     @staticmethod
-    def _load(pathtovector,
+    def _load(iterator,
               wordlist,
               num_to_load,
               truncate_embeddings,
@@ -171,9 +178,9 @@ class Reach(object):
         except ValueError:
             wordlist = set()
 
-        logger.info("Loading {0}".format(pathtovector))
-
-        firstline = open(pathtovector).readline().strip()
+        i_a, i_b = tee(iterator)
+        firstline = next(i_b).decode('utf-8').strip()
+        print(firstline)
         try:
             num, size = firstline.split(sep)
             num, size = int(num), int(size)
@@ -189,11 +196,12 @@ class Reach(object):
         if truncate_embeddings is None or truncate_embeddings == 0:
             truncate_embeddings = size
 
-        for idx, line in enumerate(open(pathtovector, encoding='utf-8')):
+        for idx, line in enumerate(i_a):
 
             if header and idx == 0:
                 continue
 
+            line = line.decode("utf-8")
             word, rest = line.rstrip(" \n").split(sep, 1)
 
             if wordlist and word not in wordlist:
