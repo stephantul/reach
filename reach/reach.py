@@ -180,7 +180,6 @@ class Reach(object):
 
         i_a, i_b = tee(iterator)
         firstline = next(i_b).decode('utf-8').strip()
-        print(firstline)
         try:
             num, size = firstline.split(sep)
             num, size = int(num), int(size)
