@@ -59,7 +59,7 @@ class Reach(object):
             raise ValueError(
                 "Your vector space and list of items are not "
                 "the same length: "
-                "{} != {}".format(len(vectors), len(items))
+                f"{len(vectors)} != {len(items)}"
             )
         if isinstance(items, (dict, set)):
             raise ValueError(
@@ -182,17 +182,17 @@ class Reach(object):
         except ValueError:
             wordlist = set()
 
-        logger.info("Loading {0}".format(pathtovector))
+        logger.info(f"Loading {pathtovector}")
 
         firstline = open(pathtovector).readline().strip()
         try:
             num, size = firstline.split(sep)
             num, size = int(num), int(size)
-            logger.info("Vector space: {} by {}".format(num, size))
+            logger.info(f"Vector space: {num} by {size}")
             header = True
         except ValueError:
             size = len(firstline.split(sep)) - 1
-            logger.info("Vector space: {} dim, # items unknown".format(size))
+            logger.info(f"Vector space: {size} dim, # items unknown")
             word, rest = firstline.split(sep, 1)
             # If the first line is correctly parseable, set header to False.
             header = False
@@ -242,7 +242,7 @@ class Reach(object):
             if diff:
                 logger.info(
                     "Not all items from your wordlist were in your "
-                    "vector space: {}.".format(diff)
+                    f"vector space: {diff}."
                 )
 
         return vectors, words
@@ -279,7 +279,7 @@ class Reach(object):
         index = list(self.bow(tokens, remove_oov=remove_oov))
         if not index:
             raise ValueError(
-                "You supplied a list with only OOV tokens: {}, "
+                f"You supplied a list with only OOV tokens: {tokens}, "
                 "which then got removed. Set remove_oov to False,"
                 " or filter your sentences to remove any in which"
                 " all items are OOV."
@@ -292,12 +292,12 @@ class Reach(object):
     def mean_vector(self, tokens, remove_oov=False):
         """Get the mean vector of a sentence."""
         vector = np.zeros(self.size)
-        tokens = Counter(tokens)
+        token_counts = Counter(tokens)
         if remove_oov:
-            tokens = {k: v for k, v in tokens.items() if k in self.items}
-        if not tokens:
+            token_counts = {k: v for k, v in tokens.items() if k in self.items}
+        if not token_counts:
             raise ValueError(
-                "You supplied a list with only OOV tokens: {}, "
+                f"You supplied a list with only OOV tokens: {tokens}, "
                 "which then got removed. Set remove_oov to False,"
                 " or filter your sentences to remove any in which"
                 " all items are OOV."
@@ -576,7 +576,7 @@ class Reach(object):
     def _batch(self, vectors, batch_size, num, show_progressbar, return_names):
         """Batched cosine distance."""
         if num < 1:
-            raise ValueError("num should be >= 1, is now {}".format(num))
+            raise ValueError("num should be >= 1, is now {num}")
 
         for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
 
@@ -751,18 +751,14 @@ class Reach(object):
         with open(path, "w") as f:
 
             if write_header:
-                f.write(
-                    "{0} {1}\n".format(
-                        str(self.vectors.shape[0]), str(self.vectors.shape[1])
-                    )
-                )
+                f.write(f"{self.vectors.shape[0]} {self.vectors.shape[1]}\n")
 
             for i in range(len(self.items)):
 
                 w = self.indices[i]
                 vec = self.vectors[i]
-
-                f.write("{0} {1}\n".format(w, " ".join([str(x) for x in vec])))
+                vec_string = " ".join([str(x) for x in vec])
+                f.write(f"{w} {vec_string}\n")
 
     def save_fast_format(self, filename):
         """
@@ -783,8 +779,8 @@ class Reach(object):
         items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
         items = {"items": items, "unk_index": self.unk_index, "name": self.name}
 
-        json.dump(items, open("{}_items.json".format(filename), "w"))
-        np.save(open("{}_vectors.npy".format(filename), "wb"), self.vectors)
+        json.dump(items, open(f"{filename}_items.json", "w"))
+        np.save(open(f"{filename}_vectors.npy", "wb"), self.vectors)
 
     @staticmethod
     def load_fast_format(filename):
@@ -810,7 +806,7 @@ class Reach(object):
     @staticmethod
     def _load_fast(filename):
         """Sub for fast loader."""
-        it = json.load(open("{}_items.json".format(filename)))
+        it = json.load(open(f"{filename}_items.json"))
         words, unk_index, name = it["items"], it["unk_index"], it["name"]
-        vectors = np.load(open("{}_vectors.npy".format(filename), "rb"))
+        vectors = np.load(open(f"{filename}_vectors.npy", "rb"))
         return words, unk_index, name, vectors
