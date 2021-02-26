@@ -7,7 +7,7 @@ from setuptools import find_packages
 
 setup(
     name="reach",
-    version="3.4.0",
+    version="3.4.1",
     description="A light-weight package for working with pre-trained"
     " word embeddings",
     author="Stéphan Tulkens",
