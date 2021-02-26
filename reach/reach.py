@@ -294,7 +294,7 @@ class Reach(object):
         vector = np.zeros(self.size)
         token_counts = Counter(tokens)
         if remove_oov:
-            token_counts = {k: v for k, v in tokens.items() if k in self.items}
+            token_counts = {k: v for k, v in token_counts.items() if k in self.items}
         if not token_counts:
             raise ValueError(
                 f"You supplied a list with only OOV tokens: {tokens}, "
@@ -302,8 +302,8 @@ class Reach(object):
                 " or filter your sentences to remove any in which"
                 " all items are OOV."
             )
-        n_words = sum(tokens.values())
-        for k, v in tokens.items():
+        n_words = sum(token_counts.values())
+        for k, v in token_counts.items():
             try:
                 vector += self[k] * v
             except KeyError:
