@@ -307,6 +307,14 @@ class Reach(object):
             try:
                 vector += self[k] * v
             except KeyError:
+                if self.unk_index is None:
+                    raise ValueError(
+                        "You supplied OOV items but didn't "
+                        "provide the index of the replacement "
+                        "glyph. Either set remove_oov to True, "
+                        "or set unk_index to the index of the "
+                        "item which replaces any OOV items."
+                    )
                 vector += self.vectors[self.unk_index] * v
         return vector / n_words
 
