@@ -3,7 +3,6 @@ import json
 import logging
 import os
 from io import open
-from collections import Counter
 
 import numpy as np
 from tqdm import tqdm
@@ -289,34 +288,40 @@ class Reach(object):
         else:
             return np.stack([self.vectors[x] for x in index])
 
-    def mean_vector(self, tokens, remove_oov=False):
-        """Get the mean vector of a sentence."""
+    def mean_vector(self, tokens, remove_oov=False, norm=False):
+        """
+        Get the mean vector of a sentence.
+
+        Parameters
+        ----------
+        tokens : object or list of objects
+            The tokens to take the mean of.
+        remove_oov : bool, optional, default False
+            Whether to remove OOV items. If False, OOV items are replaced by
+            the UNK glyph.
+        norm : bool, optional, default False
+            Whether to take the mean of the unit vectors, or the regular vectors.
+
+        Returns
+        -------
+        mean : numpy array
+            A vector with M dimensions, where M is the size of the vector space.
+
+        """
         vector = np.zeros(self.size)
-        token_counts = Counter(tokens)
-        if remove_oov:
-            token_counts = {k: v for k, v in token_counts.items() if k in self.items}
-        if not token_counts:
+        if not tokens:
+            raise ValueError("You supplied an empty list.")
+        index = list(self.bow(tokens, remove_oov=remove_oov))
+        if not index:
             raise ValueError(
                 f"You supplied a list with only OOV tokens: {tokens}, "
                 "which then got removed. Set remove_oov to False,"
                 " or filter your sentences to remove any in which"
                 " all items are OOV."
             )
-        n_words = sum(token_counts.values())
-        for k, v in token_counts.items():
-            try:
-                vector += self[k] * v
-            except KeyError:
-                if self.unk_index is None:
-                    raise ValueError(
-                        "You supplied OOV items but didn't "
-                        "provide the index of the replacement "
-                        "glyph. Either set remove_oov to True, "
-                        "or set unk_index to the index of the "
-                        "item which replaces any OOV items."
-                    )
-                vector += self.vectors[self.unk_index] * v
-        return vector / n_words
+        for x in index:
+            vector += self.norm_vectors[x] if norm else self.vectors[x]
+        return vector / len(index)
 
     def bow(self, tokens, remove_oov=False):
         """
