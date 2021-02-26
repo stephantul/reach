@@ -1,11 +1,13 @@
 """A class for working with vector representations."""
-import logging
 import json
-import numpy as np
+import logging
 import os
-
 from io import open
+from collections import Counter
+
+import numpy as np
 from tqdm import tqdm
+
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +56,18 @@ class Reach(object):
     def __init__(self, vectors, items, name="", unk_index=None):
         """Initialize a Reach instance with an array and list of items."""
         if len(items) != len(vectors):
-            raise ValueError("Your vector space and list of items are not "
-                             "the same length: "
-                             "{} != {}".format(len(vectors), len(items)))
+            raise ValueError(
+                "Your vector space and list of items are not "
+                "the same length: "
+                "{} != {}".format(len(vectors), len(items))
+            )
         if isinstance(items, (dict, set)):
-            raise ValueError("Your item list is a set or dict, and might not "
-                             "retain order in the conversion to internal look"
-                             "-ups. Please convert it to list and check the "
-                             "order.")
+            raise ValueError(
+                "Your item list is a set or dict, and might not "
+                "retain order in the conversion to internal look"
+                "-ups. Please convert it to list and check the "
+                "order."
+            )
 
         self.items = {w: idx for idx, w in enumerate(items)}
         self.indices = {v: k for k, v in self.items.items()}
@@ -87,14 +93,16 @@ class Reach(object):
         self.norm_vectors = self.normalize(x)
 
     @staticmethod
-    def load(pathtovector,
-             wordlist=(),
-             num_to_load=None,
-             truncate_embeddings=None,
-             unk_word=None,
-             sep=" ",
-             recover_from_errors=False,
-             **kwargs):
+    def load(
+        pathtovector,
+        wordlist=(),
+        num_to_load=None,
+        truncate_embeddings=None,
+        unk_word=None,
+        sep=" ",
+        recover_from_errors=False,
+        **kwargs,
+    ):
         r"""
         Read a file in word2vec .txt format.
 
@@ -132,12 +140,14 @@ class Reach(object):
             An initialized Reach instance.
 
         """
-        vectors, items = Reach._load(pathtovector,
-                                     wordlist,
-                                     num_to_load,
-                                     truncate_embeddings,
-                                     sep,
-                                     recover_from_errors)
+        vectors, items = Reach._load(
+            pathtovector,
+            wordlist,
+            num_to_load,
+            truncate_embeddings,
+            sep,
+            recover_from_errors,
+        )
         if unk_word is not None:
             if unk_word not in set(items):
                 unk_vec = np.zeros((1, vectors.shape[1]))
@@ -149,18 +159,19 @@ class Reach(object):
         else:
             unk_index = None
 
-        return Reach(vectors,
-                     items,
-                     name=os.path.split(pathtovector)[-1],
-                     unk_index=unk_index)
+        return Reach(
+            vectors, items, name=os.path.split(pathtovector)[-1], unk_index=unk_index
+        )
 
     @staticmethod
-    def _load(pathtovector,
-              wordlist,
-              num_to_load,
-              truncate_embeddings,
-              sep,
-              recover_from_errors):
+    def _load(
+        pathtovector,
+        wordlist,
+        num_to_load,
+        truncate_embeddings,
+        sep,
+        recover_from_errors,
+    ):
         """Load a matrix and wordlist from a .vec file."""
         vectors = []
         addedwords = set()
@@ -189,7 +200,7 @@ class Reach(object):
         if truncate_embeddings is None or truncate_embeddings == 0:
             truncate_embeddings = size
 
-        for idx, line in enumerate(open(pathtovector, encoding='utf-8')):
+        for idx, line in enumerate(open(pathtovector, encoding="utf-8")):
 
             if header and idx == 0:
                 continue
@@ -200,22 +211,21 @@ class Reach(object):
                 continue
 
             if word in addedwords:
-                e = """Duplicate: {} on line {} was in the
-                    vector space twice""".format(word, idx)
+                e = f"Duplicate: {word} on line {idx+1} was in the vector space twice"
                 if recover_from_errors:
                     print(e)
                     continue
                 raise ValueError(e)
 
             if len(rest.split(sep)) != size:
-                e = """Incorrect input at index {}, size
-                       is {}, expected {}""".format(idx+1,
-                                                    len(rest.split(sep)),
-                                                    size)
+                e = (
+                    f"Incorrect input at index {idx+1}, size"
+                    f"is {len(rest.split())}, expected {size}."
+                )
                 if recover_from_errors:
                     print(e)
                     continue
-                raise ValueError()
+                raise ValueError(e)
 
             words.append(word)
             addedwords.add(word)
@@ -230,8 +240,10 @@ class Reach(object):
         if wordlist:
             diff = wordlist - addedwords
             if diff:
-                logger.info("Not all items from your wordlist were in your "
-                            "vector space: {}.".format(diff))
+                logger.info(
+                    "Not all items from your wordlist were in your "
+                    "vector space: {}.".format(diff)
+                )
 
         return vectors, words
 
@@ -266,14 +278,37 @@ class Reach(object):
             raise ValueError("You supplied an empty list.")
         index = list(self.bow(tokens, remove_oov=remove_oov))
         if not index:
-            raise ValueError("You supplied a list with only OOV tokens: {}, "
-                             "which then got removed. Set remove_oov to False,"
-                             " or filter your sentences to remove any in which"
-                             " all items are OOV.")
+            raise ValueError(
+                "You supplied a list with only OOV tokens: {}, "
+                "which then got removed. Set remove_oov to False,"
+                " or filter your sentences to remove any in which"
+                " all items are OOV."
+            )
         if norm:
             return np.stack([self.norm_vectors[x] for x in index])
         else:
             return np.stack([self.vectors[x] for x in index])
+
+    def mean_vector(self, tokens, remove_oov=False):
+        """Get the mean vector of a sentence."""
+        vector = np.zeros(self.size)
+        tokens = Counter(tokens)
+        if remove_oov:
+            tokens = {k: v for k, v in tokens.items() if k in self.items}
+        if not tokens:
+            raise ValueError(
+                "You supplied a list with only OOV tokens: {}, "
+                "which then got removed. Set remove_oov to False,"
+                " or filter your sentences to remove any in which"
+                " all items are OOV."
+            )
+        n_words = sum(tokens.values())
+        for k, v in tokens.items():
+            try:
+                vector += self[k] * v
+            except KeyError:
+                vector += self.vectors[self.unk_index] * v
+        return vector / n_words
 
     def bow(self, tokens, remove_oov=False):
         """
@@ -302,11 +337,13 @@ class Reach(object):
                 yield self.items[t]
             except KeyError:
                 if self.unk_index is None:
-                    raise ValueError("You supplied OOV items but didn't "
-                                     "provide the index of the replacement "
-                                     "glyph. Either set remove_oov to True, "
-                                     "or set unk_index to the index of the "
-                                     "item which replaces any OOV items.")
+                    raise ValueError(
+                        "You supplied OOV items but didn't "
+                        "provide the index of the replacement "
+                        "glyph. Either set remove_oov to True, "
+                        "or set unk_index to the index of the "
+                        "item which replaces any OOV items."
+                    )
                 yield self.unk_index
 
     def transform(self, corpus, remove_oov=False, norm=False):
@@ -330,15 +367,11 @@ class Reach(object):
             of different lengths, depending on whether remove_oov is True.
 
         """
-        return [self.vectorize(s, remove_oov=remove_oov, norm=norm)
-                for s in corpus]
+        return [self.vectorize(s, remove_oov=remove_oov, norm=norm) for s in corpus]
 
-    def most_similar(self,
-                     items,
-                     num=10,
-                     batch_size=100,
-                     show_progressbar=False,
-                     return_names=True):
+    def most_similar(
+        self, items, num=10, batch_size=100, show_progressbar=False, return_names=True
+    ):
         """
         Return the num most similar items to a given list of items.
 
@@ -377,21 +410,19 @@ class Reach(object):
             pass
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
 
-        result = self._batch(x,
-                             batch_size,
-                             num+1,
-                             show_progressbar,
-                             return_names)
+        result = self._batch(x, batch_size, num + 1, show_progressbar, return_names)
 
         # list call consumes the generator.
         return [x[1:] for x in result]
 
-    def threshold(self,
-                  items,
-                  threshold=.5,
-                  batch_size=100,
-                  show_progressbar=False,
-                  return_names=True):
+    def threshold(
+        self,
+        items,
+        threshold=0.5,
+        batch_size=100,
+        show_progressbar=False,
+        return_names=True,
+    ):
         """
         Return all items whose similarity is higher than threshold.
 
@@ -430,21 +461,16 @@ class Reach(object):
             pass
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
 
-        result = self._threshold_batch(x,
-                                       batch_size,
-                                       threshold,
-                                       show_progressbar,
-                                       return_names)
+        result = self._threshold_batch(
+            x, batch_size, threshold, show_progressbar, return_names
+        )
 
         # list call consumes the generator.
         return [x[1:] for x in result]
 
-    def nearest_neighbor(self,
-                         vectors,
-                         num=10,
-                         batch_size=100,
-                         show_progressbar=False,
-                         return_names=True):
+    def nearest_neighbor(
+        self, vectors, num=10, batch_size=100, show_progressbar=False, return_names=True
+    ):
         """
         Find the nearest neighbors to some arbitrary vector.
 
@@ -479,18 +505,18 @@ class Reach(object):
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
-        return list(self._batch(vectors,
-                                batch_size,
-                                num,
-                                show_progressbar,
-                                return_names))
+        return list(
+            self._batch(vectors, batch_size, num, show_progressbar, return_names)
+        )
 
-    def nearest_neighbor_threshold(self,
-                                   vectors,
-                                   threshold=.5,
-                                   batch_size=100,
-                                   show_progressbar=False,
-                                   return_names=True):
+    def nearest_neighbor_threshold(
+        self,
+        vectors,
+        threshold=0.5,
+        batch_size=100,
+        show_progressbar=False,
+        return_names=True,
+    ):
         """
         Find the nearest neighbors to some arbitrary vector.
 
@@ -525,61 +551,47 @@ class Reach(object):
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
-        return list(self._threshold_batch(vectors,
-                                          batch_size,
-                                          threshold,
-                                          show_progressbar,
-                                          return_names))
+        return list(
+            self._threshold_batch(
+                vectors, batch_size, threshold, show_progressbar, return_names
+            )
+        )
 
-    def _threshold_batch(self,
-                         vectors,
-                         batch_size,
-                         threshold,
-                         show_progressbar,
-                         return_names):
+    def _threshold_batch(
+        self, vectors, batch_size, threshold, show_progressbar, return_names
+    ):
         """Batched cosine distance."""
-        for i in tqdm(range(0, len(vectors), batch_size),
-                      disable=not show_progressbar):
+        for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
 
-            batch = vectors[i: i+batch_size]
+            batch = vectors[i : i + batch_size]
             similarities = self._sim(batch, self.norm_vectors)
             for lidx, sims in enumerate(similarities):
                 indices = np.flatnonzero(sims >= threshold)
                 sorted_indices = indices[np.argsort(-sims[indices])]
                 if return_names:
-                    yield [(self.indices[d], sims[d])
-                           for d in sorted_indices]
+                    yield [(self.indices[d], sims[d]) for d in sorted_indices]
                 else:
                     yield list(sims[sorted_indices])
 
-    def _batch(self,
-               vectors,
-               batch_size,
-               num,
-               show_progressbar,
-               return_names):
+    def _batch(self, vectors, batch_size, num, show_progressbar, return_names):
         """Batched cosine distance."""
         if num < 1:
             raise ValueError("num should be >= 1, is now {}".format(num))
 
-        for i in tqdm(range(0, len(vectors), batch_size),
-                      disable=not show_progressbar):
+        for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
 
-            batch = vectors[i: i+batch_size]
+            batch = vectors[i : i + batch_size]
             similarities = self._sim(batch, self.norm_vectors)
             if num == 1:
                 sorted_indices = np.argmax(similarities, 1)[:, None]
             else:
-                sorted_indices = np.argpartition(-similarities,
-                                                 kth=num,
-                                                 axis=1)
+                sorted_indices = np.argpartition(-similarities, kth=num, axis=1)
                 sorted_indices = sorted_indices[:, :num]
             for lidx, indices in enumerate(sorted_indices):
                 sims = similarities[lidx, indices]
                 if return_names:
                     dindex = np.argsort(-sims)
-                    yield [(self.indices[indices[d]], sims[d])
-                           for d in dindex]
+                    yield [(self.indices[indices[d]], sims[d]) for d in dindex]
                 else:
                     yield list(-1 * np.sort(-sims))
 
@@ -634,7 +646,7 @@ class Reach(object):
     def _sim(self, x, y):
         """Distance function."""
         sim = self.normalize(x).dot(y.T)
-        return np.clip(sim, a_min=.0, a_max=1.0)
+        return np.clip(sim, a_min=0.0, a_max=1.0)
 
     def similarity(self, i1, i2):
         """
@@ -691,6 +703,38 @@ class Reach(object):
         wordlist = [self.indices[x] for x in indices]
         return Reach(vectors, wordlist, unk_index=unk_index)
 
+    def union(self, other, check=True):
+        """
+        Union a reach with another reach.
+        If items are in both reach instances, the current instance gets precedence.
+
+        Parameters
+        ----------
+        other : Reach
+            Another Reach instance.
+        check : bool
+            Whether to check if duplicates are the same vector.
+
+        """
+        if self.size != other.size:
+            raise ValueError(
+                f"The size of the embedding spaces was not the same: {self.size} and {other.size}"
+            )
+        union = sorted(set(self.items) | set(other.items))
+        if check:
+            intersection = set(self.items) & set(other.items)
+            for x in intersection:
+                if not np.allclose(self[x], other[x]):
+                    raise ValueError(f"Term {x} was not the same in both instances")
+        vectors = []
+        for x in union:
+            try:
+                vectors.append(self[x])
+            except KeyError:
+                vectors.append(other[x])
+
+        return Reach(np.stack(vectors), union)
+
     def save(self, path, write_header=True):
         """
         Save the current vector space in word2vec format.
@@ -704,19 +748,21 @@ class Reach(object):
             file
 
         """
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
 
             if write_header:
-                f.write(u"{0} {1}\n".format(str(self.vectors.shape[0]),
-                        str(self.vectors.shape[1])))
+                f.write(
+                    "{0} {1}\n".format(
+                        str(self.vectors.shape[0]), str(self.vectors.shape[1])
+                    )
+                )
 
             for i in range(len(self.items)):
 
                 w = self.indices[i]
                 vec = self.vectors[i]
 
-                f.write(u"{0} {1}\n".format(w,
-                                            " ".join([str(x) for x in vec])))
+                f.write("{0} {1}\n".format(w, " ".join([str(x) for x in vec])))
 
     def save_fast_format(self, filename):
         """
@@ -735,12 +781,10 @@ class Reach(object):
 
         """
         items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
-        items = {"items": items,
-                 "unk_index": self.unk_index,
-                 "name": self.name}
+        items = {"items": items, "unk_index": self.unk_index, "name": self.name}
 
-        json.dump(items, open("{}_items.json".format(filename), 'w'))
-        np.save(open("{}_vectors.npy".format(filename), 'wb'), self.vectors)
+        json.dump(items, open("{}_items.json".format(filename), "w"))
+        np.save(open("{}_vectors.npy".format(filename), "wb"), self.vectors)
 
     @staticmethod
     def load_fast_format(filename):
@@ -768,5 +812,5 @@ class Reach(object):
         """Sub for fast loader."""
         it = json.load(open("{}_items.json".format(filename)))
         words, unk_index, name = it["items"], it["unk_index"], it["name"]
-        vectors = np.load(open("{}_vectors.npy".format(filename), 'rb'))
+        vectors = np.load(open("{}_vectors.npy".format(filename), "rb"))
         return words, unk_index, name, vectors
