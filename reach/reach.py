@@ -275,7 +275,7 @@ class Reach(object):
         """
         if not tokens:
             raise ValueError("You supplied an empty list.")
-        index = list(self.bow(tokens, remove_oov=remove_oov))
+        index = self.bow(tokens, remove_oov=remove_oov)
         if not index:
             raise ValueError(
                 f"You supplied a list with only OOV tokens: {tokens}, "
@@ -283,10 +283,11 @@ class Reach(object):
                 " or filter your sentences to remove any in which"
                 " all items are OOV."
             )
+        index = np.asarray(index)
         if norm:
-            return np.stack([self.norm_vectors[x] for x in index])
+            return self.norm_vectors[index]
         else:
-            return np.stack([self.vectors[x] for x in index])
+            return self.vectors[index]
 
     def mean_vector(self, tokens, remove_oov=False, norm=False):
         """
@@ -308,20 +309,7 @@ class Reach(object):
             A vector with M dimensions, where M is the size of the vector space.
 
         """
-        vector = np.zeros(self.size)
-        if not tokens:
-            raise ValueError("You supplied an empty list.")
-        index = list(self.bow(tokens, remove_oov=remove_oov))
-        if not index:
-            raise ValueError(
-                f"You supplied a list with only OOV tokens: {tokens}, "
-                "which then got removed. Set remove_oov to False,"
-                " or filter your sentences to remove any in which"
-                " all items are OOV."
-            )
-        for x in index:
-            vector += self.norm_vectors[x] if norm else self.vectors[x]
-        return vector / len(index)
+        return self.vectorize(tokens, remove_oov, norm).mean(0)
 
     def bow(self, tokens, remove_oov=False):
         """
@@ -342,13 +330,13 @@ class Reach(object):
             A BOW representation of the list of items.
 
         """
-        if remove_oov:
-            tokens = [x for x in tokens if x in self.items]
-
+        out = []
         for t in tokens:
             try:
-                yield self.items[t]
+                out.append(self.items[t])
             except KeyError:
+                if remove_oov:
+                    pass
                 if self.unk_index is None:
                     raise ValueError(
                         "You supplied OOV items but didn't "
@@ -357,7 +345,9 @@ class Reach(object):
                         "or set unk_index to the index of the "
                         "item which replaces any OOV items."
                     )
-                yield self.unk_index
+                out.append(self.unk_index)
+
+        return out
 
     def transform(self, corpus, remove_oov=False, norm=False):
         """
