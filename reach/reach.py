@@ -100,6 +100,7 @@ class Reach(object):
         unk_word=None,
         sep=" ",
         recover_from_errors=False,
+        desired_dtype="float32",
         **kwargs,
     ):
         r"""
@@ -159,7 +160,10 @@ class Reach(object):
             unk_index = None
 
         return Reach(
-            vectors, items, name=os.path.split(pathtovector)[-1], unk_index=unk_index
+            vectors.astype(desired_dtype),
+            items,
+            name=os.path.split(pathtovector)[-1],
+            unk_index=unk_index,
         )
 
     @staticmethod
@@ -355,11 +359,13 @@ class Reach(object):
 
         Parameters
         ----------
-        corpus : A list of strings, list of list of strings.
-            Represents a corpus as a list of sentences, where sentences
-            can either be strings or lists of tokens.
+        corpus : A list of list of strings.
+            Represents a corpus as a list of sentences, where a sentence
+            is a list of tokens.
         remove_oov : bool, optional, default False
             If True, removes OOV items from the input before vectorization.
+        norm : bool, optional, default False
+            If True, this will return normalized vectors.
 
         Returns
         -------
@@ -786,7 +792,7 @@ class Reach(object):
         np.save(open(f"{filename}_vectors.npy", "wb"), self.vectors)
 
     @staticmethod
-    def load_fast_format(filename):
+    def load_fast_format(filename, desired_dtype="float32"):
         """
         Load a reach instance in fast format.
 
@@ -804,6 +810,7 @@ class Reach(object):
 
         """
         words, unk_index, name, vectors = Reach._load_fast(filename)
+        vectors = vectors.astype(desired_dtype)
         return Reach(vectors, words, unk_index=unk_index, name=name)
 
     @staticmethod
