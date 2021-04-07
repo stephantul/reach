@@ -340,7 +340,7 @@ class Reach(object):
                 out.append(self.items[t])
             except KeyError:
                 if remove_oov:
-                    pass
+                    continue
                 if self.unk_index is None:
                     raise ValueError(
                         "You supplied OOV items but didn't "
