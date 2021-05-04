@@ -89,7 +89,15 @@ class Reach(object):
         x = np.array(x)
         assert np.ndim(x) == 2 and x.shape[0] == len(self.items)
         self._vectors = x
-        self.norm_vectors = self.normalize(x)
+        # Make sure norm vectors is updated.
+        if hasattr(self, "_norm_vectors"):
+            self._norm_vectors = self.normalize(x)
+
+    @property
+    def norm_vectors(self):
+        if not hasattr(self, "_norm_vectors"):
+            self._norm_vectors = self.normalize(self.vectors)
+        return self._norm_vectors
 
     @staticmethod
     def load(
