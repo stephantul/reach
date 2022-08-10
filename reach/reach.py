@@ -423,6 +423,8 @@ class Reach(object):
         try:
             if items in self.items:
                 items = [items]
+            elif isinstance(items, str):
+                raise KeyError(f"{items} is not in the set of items.")
         except TypeError:
             pass
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
@@ -474,6 +476,8 @@ class Reach(object):
         try:
             if items in self.items:
                 items = [items]
+            elif isinstance(items, str):
+                raise KeyError(f"{items} is not in the set of items.")
         except TypeError:
             pass
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
