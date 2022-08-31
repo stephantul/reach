@@ -1,11 +1,18 @@
 """A class for working with vector representations."""
+from __future__ import annotations
 import json
 import logging
 import os
 from io import open
+from typing import Generator, List, Optional, Tuple, Union
 
 import numpy as np
 from tqdm import tqdm
+
+
+Matrix = Union[np.ndarray, List[np.ndarray]]
+SimilarityItem = List[Union[Tuple[str, float], Tuple[float]]]
+SimilarityResult = List[SimilarityItem]
 
 
 logger = logging.getLogger(__name__)
@@ -52,13 +59,11 @@ class Reach(object):
 
     """
 
-    def __init__(self, vectors, items, name="", unk_index=None):
+    def __init__(self, vectors: Matrix, items: List[str], name: str="", unk_index: Optional[int]=None) -> None:
         """Initialize a Reach instance with an array and list of items."""
         if len(items) != len(vectors):
             raise ValueError(
-                "Your vector space and list of items are not "
-                "the same length: "
-                f"{len(vectors)} != {len(items)}"
+                "Your vector space and list of items are not the same length: " f"{len(vectors)} != {len(items)}"
             )
         if isinstance(items, (dict, set)):
             raise ValueError(
@@ -70,23 +75,21 @@ class Reach(object):
 
         self.items = {w: idx for idx, w in enumerate(items)}
         self.indices = {v: k for k, v in self.items.items()}
-
         self.vectors = np.asarray(vectors)
         self.unk_index = unk_index
-
         self.name = name
 
     @property
-    def size(self):
+    def size(self) -> int:
         return self.vectors.shape[1]
 
     @property
-    def vectors(self):
+    def vectors(self) -> np.ndarray:
         return self._vectors
 
     @vectors.setter
-    def vectors(self, x):
-        x = np.array(x)
+    def vectors(self, x: Matrix) -> None:
+        x = np.asarray(x)
         assert np.ndim(x) == 2 and x.shape[0] == len(self.items)
         self._vectors = x
         # Make sure norm vectors is updated.
@@ -94,23 +97,23 @@ class Reach(object):
             self._norm_vectors = self.normalize(x)
 
     @property
-    def norm_vectors(self):
+    def norm_vectors(self) -> np.ndarray:
         if not hasattr(self, "_norm_vectors"):
             self._norm_vectors = self.normalize(self.vectors)
         return self._norm_vectors
 
     @staticmethod
     def load(
-        pathtovector,
-        wordlist=(),
-        num_to_load=None,
-        truncate_embeddings=None,
-        unk_word=None,
-        sep=" ",
-        recover_from_errors=False,
-        desired_dtype="float32",
+        pathtovector: str,
+        wordlist: Optional[Tuple[str, ...]] = None,
+        num_to_load: Optional[int] = None,
+        truncate_embeddings: Optional[int] = None,
+        unk_word: Optional[str] = None,
+        sep: str = " ",
+        recover_from_errors: bool = False,
+        desired_dtype: str = "float32",
         **kwargs,
-    ):
+    ) -> Reach:
         r"""
         Read a file in word2vec .txt format.
 
@@ -155,6 +158,7 @@ class Reach(object):
             truncate_embeddings,
             sep,
             recover_from_errors,
+            **kwargs
         )
         if unk_word is not None:
             if unk_word not in set(items):
@@ -176,29 +180,28 @@ class Reach(object):
 
     @staticmethod
     def _load(
-        pathtovector,
-        wordlist,
-        num_to_load,
-        truncate_embeddings,
-        sep,
-        recover_from_errors,
-    ):
+        pathtovector: str,
+        wordlist: Optional[Tuple[str, ...]],
+        num_to_load: Optional[int],
+        truncate_embeddings: Optional[int],
+        sep: str,
+        recover_from_errors: bool,
+    ) -> Tuple[np.ndarray, List[str]]:
         """Load a matrix and wordlist from a .vec file."""
         vectors = []
         addedwords = set()
         words = []
 
-        try:
-            wordlist = set(wordlist)
-        except ValueError:
-            wordlist = set()
+        if wordlist is None:
+            wordset = set()
+        else:
+            wordset = set(wordlist)
 
         logger.info(f"Loading {pathtovector}")
 
         firstline = open(pathtovector).readline().strip()
         try:
-            num, size = firstline.split(sep)
-            num, size = int(num), int(size)
+            num, size = map(int, firstline.split(sep))
             logger.info(f"Vector space: {num} by {size}")
             header = True
         except ValueError:
@@ -218,7 +221,7 @@ class Reach(object):
 
             word, rest = line.rstrip(" \n").split(sep, 1)
 
-            if wordlist and word not in wordlist:
+            if wordset and word not in wordset:
                 continue
 
             if word in addedwords:
@@ -229,10 +232,7 @@ class Reach(object):
                 raise ValueError(e)
 
             if len(rest.split(sep)) != size:
-                e = (
-                    f"Incorrect input at index {idx+1}, size"
-                    f"is {len(rest.split())}, expected {size}."
-                )
+                e = f"Incorrect input at index {idx+1}, size" f"is {len(rest.split())}, expected {size}."
                 if recover_from_errors:
                     print(e)
                     continue
@@ -245,18 +245,13 @@ class Reach(object):
             if num_to_load is not None and len(addedwords) >= num_to_load:
                 break
 
-        vectors = np.array(vectors).astype(np.float32)
-
         logger.info("Loading finished")
-        if wordlist:
-            diff = wordlist - addedwords
+        if wordset:
+            diff = wordset - addedwords
             if diff:
-                logger.info(
-                    "Not all items from your wordlist were in your "
-                    f"vector space: {diff}."
-                )
+                logger.info("Not all items from your wordlist were in your " f"vector space: {diff}.")
 
-        return vectors, words
+        return np.array(vectors), words
 
     def __getitem__(self, item):
         """Get the vector for a single item."""
@@ -301,7 +296,7 @@ class Reach(object):
         else:
             return self.vectors[index]
 
-    def mean_vector(self, tokens, remove_oov=False, norm=False):
+    def mean_vector(self, tokens: List[str], remove_oov: bool = False, norm: bool = False) -> np.ndarray:
         """
         Get the mean vector of a sentence.
 
@@ -323,7 +318,7 @@ class Reach(object):
         """
         return self.vectorize(tokens, remove_oov, norm).mean(0)
 
-    def bow(self, tokens, remove_oov=False):
+    def bow(self, tokens: List[str], remove_oov: bool =False) -> List[int]:
         """
         Create a bow representation of a list of tokens.
 
@@ -361,7 +356,7 @@ class Reach(object):
 
         return out
 
-    def transform(self, corpus, remove_oov=False, norm=False):
+    def transform(self, corpus: List[List[str]], remove_oov: bool=False, norm: bool=False) -> List[np.ndarray]:
         """
         Transform a corpus by repeated calls to vectorize, defined above.
 
@@ -386,9 +381,7 @@ class Reach(object):
         """
         return [self.vectorize(s, remove_oov=remove_oov, norm=norm) for s in corpus]
 
-    def most_similar(
-        self, items, num=10, batch_size=100, show_progressbar=False, return_names=True
-    ):
+    def most_similar(self, items: Union[str, List[str]], num: int = 10, batch_size: int = 100, show_progressbar: bool = False, return_names: bool = True) -> List[SimilarityResult]:
         """
         Return the num most similar items to a given list of items.
 
@@ -414,19 +407,11 @@ class Reach(object):
             the returned list just contains distances.
 
         """
-        # This line allows users to input single items.
-        # We used to rely on string identities, but we now also allow
-        # anything hashable as keys.
-        # Might fail if a list of passed items is also in the vocabulary.
-        # but I can't think of cases when this would happen, and what
-        # user expectations are.
-        try:
-            if items in self.items:
-                items = [items]
-            elif isinstance(items, str):
+        if isinstance(items, str):
+            if items not in self.items:
                 raise KeyError(f"{items} is not in the set of items.")
-        except TypeError:
-            pass
+            items = [items]
+
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
 
         result = self._batch(x, batch_size, num + 1, show_progressbar, return_names)
@@ -436,12 +421,12 @@ class Reach(object):
 
     def threshold(
         self,
-        items,
-        threshold=0.5,
-        batch_size=100,
-        show_progressbar=False,
-        return_names=True,
-    ):
+        items: List[str],
+        threshold: float=0.5,
+        batch_size: int=100,
+        show_progressbar: bool=False,
+        return_names: bool=True,
+    ) -> SimilarityResult:
         """
         Return all items whose similarity is higher than threshold.
 
@@ -467,31 +452,19 @@ class Reach(object):
             the returned list just contains distances.
 
         """
-        # This line allows users to input single items.
-        # We used to rely on string identities, but we now also allow
-        # anything hashable as keys.
-        # Might fail if a list of passed items is also in the vocabulary.
-        # but I can't think of cases when this would happen, and what
-        # user expectations are.
-        try:
-            if items in self.items:
-                items = [items]
-            elif isinstance(items, str):
+        if isinstance(items, str):
+            if items not in self.items:
                 raise KeyError(f"{items} is not in the set of items.")
-        except TypeError:
-            pass
+            items = [items]
+
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
 
-        result = self._threshold_batch(
-            x, batch_size, threshold, show_progressbar, return_names
-        )
+        result = self._threshold_batch(x, batch_size, threshold, show_progressbar, return_names)
 
         # list call consumes the generator.
         return [x[1:] for x in result]
 
-    def nearest_neighbor(
-        self, vectors, num=10, batch_size=100, show_progressbar=False, return_names=True
-    ):
+    def nearest_neighbor(self, vectors: np.ndarray, num: int=10, batch_size: int=100, show_progressbar: bool=False, return_names: bool=True) -> SimilarityResult:
         """
         Find the nearest neighbors to some arbitrary vector.
 
@@ -526,18 +499,16 @@ class Reach(object):
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
-        return list(
-            self._batch(vectors, batch_size, num, show_progressbar, return_names)
-        )
+        return list(self._batch(vectors, batch_size, num, show_progressbar, return_names))
 
     def nearest_neighbor_threshold(
         self,
-        vectors,
-        threshold=0.5,
-        batch_size=100,
-        show_progressbar=False,
-        return_names=True,
-    ):
+        vectors: np.ndarray,
+        threshold: float=0.5,
+        batch_size: int=100,
+        show_progressbar: bool=False,
+        return_names: bool=True,
+    ) -> SimilarityResult:
         """
         Find the nearest neighbors to some arbitrary vector.
 
@@ -572,15 +543,9 @@ class Reach(object):
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
-        return list(
-            self._threshold_batch(
-                vectors, batch_size, threshold, show_progressbar, return_names
-            )
-        )
+        return list(self._threshold_batch(vectors, batch_size, threshold, show_progressbar, return_names))
 
-    def _threshold_batch(
-        self, vectors, batch_size, threshold, show_progressbar, return_names
-    ):
+    def _threshold_batch(self, vectors: np.ndarray, batch_size: int, threshold: float, show_progressbar: bool, return_names: bool) -> Generator[SimilarityItem, None, None]:
         """Batched cosine distance."""
         for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
 
@@ -617,7 +582,7 @@ class Reach(object):
                     yield list(-1 * np.sort(-sims))
 
     @staticmethod
-    def normalize(vectors):
+    def normalize(vectors: np.ndarray) -> np.ndarray:
         """
         Normalize a matrix of row vectors to unit length.
 
@@ -636,40 +601,37 @@ class Reach(object):
             The input vectors, normalized to unit length.
 
         """
-        vectors = np.copy(vectors)
         if np.ndim(vectors) == 1:
             norm = np.linalg.norm(vectors)
             if norm == 0:
                 return np.zeros_like(vectors)
             return vectors / norm
 
-        norm = np.linalg.norm(vectors, axis=1)
+        vectors = np.copy(vectors)
+        norm = np.linalg.norm(vectors, axis=1, keepdims=True)
 
         if np.any(norm == 0):
-
             nonzero = norm > 0
-
             result = np.zeros_like(vectors)
-
-            n = norm[nonzero]
+            n = norm[nonzero]  # type: ignore
             p = vectors[nonzero]
-            result[nonzero] = p / n[:, None]
+            result[nonzero] = p / n
 
             return result
         else:
-            return vectors / norm[:, None]
+            return vectors / norm
 
-    def vector_similarity(self, vector, items):
+    def vector_similarity(self, vector: np.ndarray, items: List[str]) -> np.ndarray:
         """Compute the similarity between a vector and a set of items."""
         items_vec = np.stack([self.norm_vectors[self.items[x]] for x in items])
         return self._sim(vector, items_vec)
 
-    def _sim(self, x, y):
+    def _sim(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Distance function."""
         sim = self.normalize(x).dot(y.T)
         return np.clip(sim, a_min=0.0, a_max=1.0)
 
-    def similarity(self, i1, i2):
+    def similarity(self, i1: Union[str, List[str]], i2: Union[str, List[str]]) -> np.ndarray:
         """
         Compute the similarity between two sets of items.
 
@@ -686,21 +648,15 @@ class Reach(object):
             An array of similarity scores between 1 and 0.
 
         """
-        try:
-            if i1 in self.items:
-                i1 = [i1]
-        except TypeError:
-            pass
-        try:
-            if i2 in self.items:
-                i2 = [i2]
-        except TypeError:
-            pass
+        if isinstance(i1, str):
+            i1 = [i1]
+        if isinstance(i2, str):
+            i2 = [i2]
         i1_vec = np.stack([self.norm_vectors[self.items[x]] for x in i1])
         i2_vec = np.stack([self.norm_vectors[self.items[x]] for x in i2])
         return self._sim(i1_vec, i2_vec)
 
-    def intersect(self, wordlist):
+    def intersect(self, wordlist: List[str]) -> Reach:
         """
         Intersect a reach instance with a wordlist.
 
@@ -713,9 +669,9 @@ class Reach(object):
 
         """
         # Remove duplicates and oov words.
-        wordlist = set(self.items) & set(wordlist)
+        wordlist = list(set(self.items) & set(wordlist))
         # Get indices of intersection.
-        indices = np.sort([self.items[x] for x in wordlist])
+        indices = sorted([self.items[x] for x in wordlist])
         # Set unk_index to None if it is None or if it is not in indices
         unk_index = self.unk_index if self.unk_index in indices else None
         # Index vectors
@@ -724,7 +680,7 @@ class Reach(object):
         wordlist = [self.indices[x] for x in indices]
         return Reach(vectors, wordlist, unk_index=unk_index)
 
-    def union(self, other, check=True):
+    def union(self, other: Reach, check: bool=True) -> Reach:
         """
         Union a reach with another reach.
         If items are in both reach instances, the current instance gets precedence.
@@ -738,9 +694,7 @@ class Reach(object):
 
         """
         if self.size != other.size:
-            raise ValueError(
-                f"The size of the embedding spaces was not the same: {self.size} and {other.size}"
-            )
+            raise ValueError(f"The size of the embedding spaces was not the same: {self.size} and {other.size}")
         union = sorted(set(self.items) | set(other.items))
         if check:
             intersection = set(self.items) & set(other.items)
@@ -756,7 +710,7 @@ class Reach(object):
 
         return Reach(np.stack(vectors), union)
 
-    def save(self, path, write_header=True):
+    def save(self, path: str, write_header: bool=True) -> None:
         """
         Save the current vector space in word2vec format.
 
@@ -781,7 +735,7 @@ class Reach(object):
                 vec_string = " ".join([str(x) for x in vec])
                 f.write(f"{w} {vec_string}\n")
 
-    def save_fast_format(self, filename):
+    def save_fast_format(self, filename: str) -> None:
         """
         Save a reach instance in a fast format.
 
@@ -798,13 +752,13 @@ class Reach(object):
 
         """
         items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
-        items = {"items": items, "unk_index": self.unk_index, "name": self.name}
+        items_dict = {"items": items, "unk_index": self.unk_index, "name": self.name}
 
-        json.dump(items, open(f"{filename}_items.json", "w"))
+        json.dump(items_dict, open(f"{filename}_items.json", "w"))
         np.save(open(f"{filename}_vectors.npy", "wb"), self.vectors)
 
     @staticmethod
-    def load_fast_format(filename, desired_dtype="float32"):
+    def load_fast_format(filename: str, desired_dtype: str ="float32") -> Reach:
         """
         Load a reach instance in fast format.
 
@@ -826,7 +780,7 @@ class Reach(object):
         return Reach(vectors, words, unk_index=unk_index, name=name)
 
     @staticmethod
-    def _load_fast(filename):
+    def _load_fast(filename: str) -> Tuple[List[str], int, str, np.ndarray]:
         """Sub for fast loader."""
         it = json.load(open(f"{filename}_items.json"))
         words, unk_index, name = it["items"], it["unk_index"], it["name"]
