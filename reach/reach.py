@@ -2,14 +2,17 @@
 from __future__ import annotations
 import json
 import logging
-import os
-from io import open
-from typing import Generator, List, Optional, Tuple, Union
+from io import BufferedIOBase, TextIOWrapper, open
+from pathlib import Path
+from typing import Any, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 from tqdm import tqdm
 
 
+Dtype = Union[str, np.dtype]
+File = Union[Path, BufferedIOBase]
+PathLike = Union[str, Path]
 Matrix = Union[np.ndarray, List[np.ndarray]]
 SimilarityItem = List[Union[Tuple[str, float], Tuple[float]]]
 SimilarityResult = List[SimilarityItem]
@@ -86,6 +89,9 @@ class Reach(object):
         self.unk_index = unk_index
         self.name = name
 
+    def __len__(self) -> int:
+        return len(self.items)
+
     @property
     def size(self) -> int:
         return self.vectors.shape[1]
@@ -97,7 +103,10 @@ class Reach(object):
     @vectors.setter
     def vectors(self, x: Matrix) -> None:
         x = np.asarray(x)
-        assert np.ndim(x) == 2 and x.shape[0] == len(self.items)
+        if not np.ndim(x) == 2:
+            raise ValueError(f"Your array does not have 2 dimensions: {np.ndim(x)}")
+        if not x.shape[0] == len(self.items):
+            raise ValueError(f"Your array does not have the correct length, got {x.shape[0]}, expected {len(self.items)}")
         self._vectors = x
         # Make sure norm vectors is updated.
         if hasattr(self, "_norm_vectors"):
@@ -111,15 +120,15 @@ class Reach(object):
 
     @staticmethod
     def load(
-        pathtovector: str,
+        vector_file: Union[File, str],
         wordlist: Optional[Tuple[str, ...]] = None,
         num_to_load: Optional[int] = None,
         truncate_embeddings: Optional[int] = None,
         unk_word: Optional[str] = None,
         sep: str = " ",
         recover_from_errors: bool = False,
-        desired_dtype: str = "float32",
-        **kwargs,
+        desired_dtype: Dtype = "float32",
+        **kwargs: Any,
     ) -> Reach:
         r"""
         Read a file in word2vec .txt format.
@@ -129,8 +138,8 @@ class Reach(object):
 
         Parameters
         ----------
-        pathtovector : string
-            The path to the vector file.
+        vector_file : string, Path or file handle
+            The path to the vector file, or an opened vector file.
         header : bool
             Whether the vector file has a header of the type
             (NUMBER OF ITEMS, SIZE OF VECTOR).
@@ -158,17 +167,39 @@ class Reach(object):
             An initialized Reach instance.
 
         """
-        vectors, items = Reach._load(
-            pathtovector,
-            wordlist,
-            num_to_load,
-            truncate_embeddings,
-            sep,
-            recover_from_errors,
-            **kwargs,
-        )
+        if isinstance(vector_file, (TextIOWrapper, BufferedIOBase)):
+            name = Path(vector_file.name).name
+            file_handle = vector_file
+            came_from_path = False
+        else:
+            if isinstance(vector_file, str):
+                vector_file = Path(vector_file)
+            name = vector_file.name
+            file_handle = open(vector_file)
+            came_from_path = True
+
+        try:
+            vectors, items = Reach._load(
+                file_handle,
+                wordlist,
+                num_to_load,
+                truncate_embeddings,
+                sep,
+                recover_from_errors,
+                desired_dtype,
+                **kwargs,
+            )
+        except ValueError as e:
+            raise e
+        finally:
+            if came_from_path:
+                file_handle.close()
+
+        if len(items) == 0:
+            raise ValueError("You loaded 0 items.")
+
         if unk_word is not None:
-            if unk_word not in set(items):
+            if unk_word not in items:
                 unk_vec = np.zeros((1, vectors.shape[1]))
                 vectors = np.concatenate([unk_vec, vectors], 0)
                 items = [unk_word] + items
@@ -179,34 +210,37 @@ class Reach(object):
             unk_index = None
 
         return Reach(
-            vectors.astype(desired_dtype),
+            vectors,
             items,
-            name=os.path.split(pathtovector)[-1],
+            name=name,
             unk_index=unk_index,
         )
 
     @staticmethod
     def _load(
-        pathtovector: str,
+        file_handle: Union(TextIOWrapper, BufferedIOBase),
         wordlist: Optional[Tuple[str, ...]],
         num_to_load: Optional[int],
         truncate_embeddings: Optional[int],
         sep: str,
         recover_from_errors: bool,
+        desired_dtype: Dtype
     ) -> Tuple[np.ndarray, List[str]]:
-        """Load a matrix and wordlist from a .vec file."""
+        """Load a matrix and wordlist from an opened .vec file."""
         vectors = []
         addedwords = set()
         words = []
+
+        if num_to_load is not None and num_to_load <= 0:
+            raise ValueError(f"num_to_load should be > 0, is now {num_to_load}")
 
         if wordlist is None:
             wordset = set()
         else:
             wordset = set(wordlist)
 
-        logger.info(f"Loading {pathtovector}")
-
-        firstline = open(pathtovector).readline().strip()
+        logger.info(f"Loading {file_handle.name}")
+        firstline = file_handle.readline().rstrip(" \n")
         try:
             num, size = map(int, firstline.split(sep))
             logger.info(f"Vector space: {num} by {size}")
@@ -217,11 +251,12 @@ class Reach(object):
             word, rest = firstline.split(sep, 1)
             # If the first line is correctly parseable, set header to False.
             header = False
+        file_handle.seek(0)
 
         if truncate_embeddings is None or truncate_embeddings == 0:
             truncate_embeddings = size
 
-        for idx, line in enumerate(open(pathtovector, encoding="utf-8")):
+        for idx, line in enumerate(file_handle):
 
             if header and idx == 0:
                 continue
@@ -234,17 +269,16 @@ class Reach(object):
             if word in addedwords:
                 e = f"Duplicate: {word} on line {idx+1} was in the vector space twice"
                 if recover_from_errors:
-                    print(e)
+                    logger.warning(e)
                     continue
                 raise ValueError(e)
 
             if len(rest.split(sep)) != size:
                 e = (
-                    f"Incorrect input at index {idx+1}, size"
-                    f"is {len(rest.split())}, expected {size}."
+                    f"Incorrect input at index {idx+1}, size is {len(rest.split())}, expected {size}."
                 )
                 if recover_from_errors:
-                    print(e)
+                    logger.warning(e)
                     continue
                 raise ValueError(e)
 
@@ -264,13 +298,13 @@ class Reach(object):
                     f"vector space: {diff}."
                 )
 
-        return np.array(vectors), words
+        return np.array(vectors, dtype=desired_dtype), words
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> np.ndarray:
         """Get the vector for a single item."""
         return self.vectors[self.items[item]]
 
-    def vectorize(self, tokens, remove_oov=False, norm=False):
+    def vectorize(self, tokens: List[str], remove_oov: bool=False, norm: bool=False) -> np.ndarray:
         """
         Vectorize a sentence by replacing all items with their vectors.
 
@@ -303,7 +337,6 @@ class Reach(object):
                 " or filter your sentences to remove any in which"
                 " all items are OOV."
             )
-        index = np.asarray(index)
         if norm:
             return self.norm_vectors[index]
         else:
@@ -348,7 +381,7 @@ class Reach(object):
 
         Returns
         -------
-        bow : generator
+        bow : list
             A BOW representation of the list of items.
 
         """
@@ -405,7 +438,7 @@ class Reach(object):
         batch_size: int = 100,
         show_progressbar: bool = False,
         return_names: bool = True,
-    ) -> List[SimilarityResult]:
+    ) -> SimilarityResult:
         """
         Return the num most similar items to a given list of items.
 
@@ -528,7 +561,7 @@ class Reach(object):
             false, only the distances are returned.
 
         """
-        vectors = np.array(vectors)
+        vectors = np.asarray(vectors)
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
@@ -597,7 +630,7 @@ class Reach(object):
 
             batch = vectors[i : i + batch_size]
             similarities = self._sim(batch, self.norm_vectors)
-            for lidx, sims in enumerate(similarities):
+            for _, sims in enumerate(similarities):
                 indices = np.flatnonzero(sims >= threshold)
                 sorted_indices = indices[np.argsort(-sims[indices])]
                 if return_names:
@@ -605,7 +638,7 @@ class Reach(object):
                 else:
                     yield list(sims[sorted_indices])
 
-    def _batch(self, vectors, batch_size, num, show_progressbar, return_names):
+    def _batch(self, vectors: np.ndarray, batch_size: int, num: int, show_progressbar: bool, return_names: bool) -> Generator[SimilarityItem, None, None]:
         """Batched cosine distance."""
         if num < 1:
             raise ValueError("num should be >= 1, is now {num}")
@@ -615,7 +648,7 @@ class Reach(object):
             batch = vectors[i : i + batch_size]
             similarities = self._sim(batch, self.norm_vectors)
             if num == 1:
-                sorted_indices = np.argmax(similarities, 1)[:, None]
+                sorted_indices = np.argmax(similarities, 1, keepdims=True)
             else:
                 sorted_indices = np.argpartition(-similarities, kth=num, axis=1)
                 sorted_indices = sorted_indices[:, :num]
@@ -625,7 +658,7 @@ class Reach(object):
                     dindex = np.argsort(-sims)
                     yield [(self.indices[indices[d]], sims[d]) for d in dindex]
                 else:
-                    yield list(-1 * np.sort(-sims))
+                    yield np.flip(np.sort(sims)).tolist()
 
     @staticmethod
     def normalize(vectors: np.ndarray) -> np.ndarray:
@@ -671,10 +704,11 @@ class Reach(object):
         """Compute the similarity between a vector and a set of items."""
         items_vec = np.stack([self.norm_vectors[self.items[x]] for x in items])
         return self._sim(vector, items_vec)
-
-    def _sim(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    
+    @classmethod
+    def _sim(cls, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Distance function."""
-        sim = self.normalize(x).dot(y.T)
+        sim = cls.normalize(x).dot(y.T)
         return np.clip(sim, a_min=0.0, a_max=1.0)
 
     def similarity(
@@ -807,8 +841,8 @@ class Reach(object):
         json.dump(items_dict, open(f"{filename}_items.json", "w"))
         np.save(open(f"{filename}_vectors.npy", "wb"), self.vectors)
 
-    @staticmethod
-    def load_fast_format(filename: str, desired_dtype: str = "float32") -> Reach:
+    @classmethod
+    def load_fast_format(cls, filename: PathLike, desired_dtype: Dtype = "float32") -> Reach:
         """
         Load a reach instance in fast format.
 
@@ -825,14 +859,10 @@ class Reach(object):
             {filename}_vectors.npy should be present.
 
         """
-        words, unk_index, name, vectors = Reach._load_fast(filename)
-        vectors = vectors.astype(desired_dtype)
-        return Reach(vectors, words, unk_index=unk_index, name=name)
-
-    @staticmethod
-    def _load_fast(filename: str) -> Tuple[List[str], int, str, np.ndarray]:
-        """Sub for fast loader."""
         it = json.load(open(f"{filename}_items.json"))
         words, unk_index, name = it["items"], it["unk_index"], it["name"]
         vectors = np.load(open(f"{filename}_vectors.npy", "rb"))
-        return words, unk_index, name, vectors
+        vectors = vectors.astype(desired_dtype)
+        return cls(vectors, words, unk_index=unk_index, name=name)
+
+
