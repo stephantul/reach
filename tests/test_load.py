@@ -43,6 +43,19 @@ class TestLoad(unittest.TestCase):
             with self.assertRaises(ValueError):
                 instance = Reach.load(tempfile.name, wordlist=("doggo",))
 
+    def test_duplicate(self) -> None:
+        with NamedTemporaryFile(mode="w+") as tempfile:
+            lines = self.lines()
+            lines_split = lines.split("\n")
+            lines_split[3] = lines_split[2]
+            tempfile.write("\n".join(lines_split))
+            tempfile.seek(0)
+
+            with self.assertRaises(ValueError):
+                Reach.load(tempfile.name, recover_from_errors=False)
+            instance = Reach.load(tempfile.name, recover_from_errors=True)
+            self.assertEqual(len(instance), 5)
+
     def test_unk(self) -> None:
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
