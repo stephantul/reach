@@ -1,6 +1,5 @@
 from pathlib import Path
 import unittest
-from logging import getLogger
 
 import numpy as np
 
@@ -8,11 +7,10 @@ from reach import Reach
 from tempfile import NamedTemporaryFile
 
 
-logger = getLogger(__name__)
-
 class TestLoad(unittest.TestCase):
-
-    def lines(self, header: bool = True, n: int = 6, dim: int = 5, sep: str = " ") -> str:
+    def lines(
+        self, header: bool = True, n: int = 6, dim: int = 5, sep: str = " "
+    ) -> str:
         lines = []
         words = ["skateboard", "pizza", "splinter", "technodrome", "krang", "shredder"]
         if header:
@@ -21,7 +19,7 @@ class TestLoad(unittest.TestCase):
             lines.append(f"{word}{sep}{sep.join([str(idx)] * dim)}")
         return "\n".join(lines)
 
-    def test_truncation(self):
+    def test_truncation(self) -> None:
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -34,7 +32,7 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance), 6)
 
-    def test_wordlist(self):
+    def test_wordlist(self) -> None:
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -45,7 +43,7 @@ class TestLoad(unittest.TestCase):
             with self.assertRaises(ValueError):
                 instance = Reach.load(tempfile.name, wordlist=("doggo",))
 
-    def test_unk(self):
+    def test_unk(self) -> None:
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -61,8 +59,7 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(instance.unk_index, 2)
             self.assertEqual(instance.items["splinter"], instance.unk_index)
 
-
-    def test_limit(self):
+    def test_limit(self) -> None:
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -76,7 +73,7 @@ class TestLoad(unittest.TestCase):
             instance = Reach.load(tempfile.name, num_to_load=10000)
             self.assertEqual(len(instance), 6)
 
-    def test_sep(self):
+    def test_sep(self) -> None:
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines(sep=",")
             tempfile.write(lines)
@@ -89,25 +86,17 @@ class TestLoad(unittest.TestCase):
             tempfile.seek(0)
             Reach.load(tempfile.name, sep=",")
 
-    def test_binary(self):
-        with NamedTemporaryFile(mode="wb+") as tempfile:
-            lines = self.lines().encode()
-            tempfile.write(lines)
-            tempfile.seek(0)
-
-            Reach.load(tempfile.name)
-
-    def test_corrupted_file(self):
+    def test_corrupted_file(self) -> None:
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines(header=False)
-            lines = lines.split("\n")
-            lines[0] = " ".join(lines[0].split(" ")[:-1])
-            tempfile.write("\n".join(lines))
+            lines_split = lines.split("\n")
+            lines_split[0] = " ".join(lines_split[0].split(" ")[:-1])
+            tempfile.write("\n".join(lines_split))
 
             tempfile.seek(0)
             with self.assertRaises(ValueError):
                 instance = Reach.load(tempfile.name)
-            
+
             instance = Reach.load(tempfile.name, recover_from_errors=True)
             self.assertEqual(instance.size, 4)
             self.assertEqual(len(instance.items), 1)
@@ -115,14 +104,14 @@ class TestLoad(unittest.TestCase):
 
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines(header=False)
-            lines = lines.split("\n")
-            lines[1] = " ".join(lines[1].split(" ")[:-1])
-            tempfile.write("\n".join(lines))
+            lines_split = lines.split("\n")
+            lines_split[1] = " ".join(lines_split[1].split(" ")[:-1])
+            tempfile.write("\n".join(lines_split))
 
             tempfile.seek(0)
             with self.assertRaises(ValueError):
                 instance = Reach.load(tempfile.name)
-            
+
             instance = Reach.load(tempfile.name, recover_from_errors=True)
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance.items), 5)
@@ -130,21 +119,20 @@ class TestLoad(unittest.TestCase):
 
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines(header=True)
-            lines = lines.split("\n")
-            lines[1] = " ".join(lines[1].split(" ")[:-1])
-            tempfile.write("\n".join(lines))
+            lines_split = lines.split("\n")
+            lines_split[1] = " ".join(lines_split[1].split(" ")[:-1])
+            tempfile.write("\n".join(lines_split))
 
             tempfile.seek(0)
             with self.assertRaises(ValueError):
                 instance = Reach.load(tempfile.name)
-            
+
             instance = Reach.load(tempfile.name, recover_from_errors=True)
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance.items), 5)
             self.assertEqual(instance.vectors.shape, (5, 5))
 
-
-    def test_load_from_file_without_header(self):
+    def test_load_from_file_without_header(self) -> None:
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines(header=False)
             tempfile.write(lines)
@@ -183,7 +171,7 @@ class TestLoad(unittest.TestCase):
             with self.assertRaises(ValueError):
                 instance = Reach.load(tempfile.name, num_to_load=-1)
 
-    def test_load_from_file_with_header(self):
+    def test_load_from_file_with_header(self) -> None:
 
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()

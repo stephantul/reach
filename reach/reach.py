@@ -2,7 +2,7 @@
 from __future__ import annotations
 import json
 import logging
-from io import BufferedIOBase, TextIOWrapper, open
+from io import TextIOWrapper, open
 from pathlib import Path
 from typing import Any, Generator, List, Optional, Tuple, Union
 
@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 
 Dtype = Union[str, np.dtype]
-File = Union[Path, BufferedIOBase]
+File = Union[Path, TextIOWrapper]
 PathLike = Union[str, Path]
 Matrix = Union[np.ndarray, List[np.ndarray]]
 SimilarityItem = List[Union[Tuple[str, float], Tuple[float]]]
@@ -106,7 +106,9 @@ class Reach(object):
         if not np.ndim(x) == 2:
             raise ValueError(f"Your array does not have 2 dimensions: {np.ndim(x)}")
         if not x.shape[0] == len(self.items):
-            raise ValueError(f"Your array does not have the correct length, got {x.shape[0]}, expected {len(self.items)}")
+            raise ValueError(
+                f"Your array does not have the correct length, got {x.shape[0]}, expected {len(self.items)}"
+            )
         self._vectors = x
         # Make sure norm vectors is updated.
         if hasattr(self, "_norm_vectors"):
@@ -167,7 +169,7 @@ class Reach(object):
             An initialized Reach instance.
 
         """
-        if isinstance(vector_file, (TextIOWrapper, BufferedIOBase)):
+        if isinstance(vector_file, TextIOWrapper):
             name = Path(vector_file.name).name
             file_handle = vector_file
             came_from_path = False
@@ -218,13 +220,13 @@ class Reach(object):
 
     @staticmethod
     def _load(
-        file_handle: Union(TextIOWrapper, BufferedIOBase),
+        file_handle: TextIOWrapper,
         wordlist: Optional[Tuple[str, ...]],
         num_to_load: Optional[int],
         truncate_embeddings: Optional[int],
         sep: str,
         recover_from_errors: bool,
-        desired_dtype: Dtype
+        desired_dtype: Dtype,
     ) -> Tuple[np.ndarray, List[str]]:
         """Load a matrix and wordlist from an opened .vec file."""
         vectors = []
@@ -274,9 +276,7 @@ class Reach(object):
                 raise ValueError(e)
 
             if len(rest.split(sep)) != size:
-                e = (
-                    f"Incorrect input at index {idx+1}, size is {len(rest.split())}, expected {size}."
-                )
+                e = f"Incorrect input at index {idx+1}, size is {len(rest.split())}, expected {size}."
                 if recover_from_errors:
                     logger.warning(e)
                     continue
@@ -304,7 +304,9 @@ class Reach(object):
         """Get the vector for a single item."""
         return self.vectors[self.items[item]]
 
-    def vectorize(self, tokens: List[str], remove_oov: bool=False, norm: bool=False) -> np.ndarray:
+    def vectorize(
+        self, tokens: List[str], remove_oov: bool = False, norm: bool = False
+    ) -> np.ndarray:
         """
         Vectorize a sentence by replacing all items with their vectors.
 
@@ -638,7 +640,14 @@ class Reach(object):
                 else:
                     yield list(sims[sorted_indices])
 
-    def _batch(self, vectors: np.ndarray, batch_size: int, num: int, show_progressbar: bool, return_names: bool) -> Generator[SimilarityItem, None, None]:
+    def _batch(
+        self,
+        vectors: np.ndarray,
+        batch_size: int,
+        num: int,
+        show_progressbar: bool,
+        return_names: bool,
+    ) -> Generator[SimilarityItem, None, None]:
         """Batched cosine distance."""
         if num < 1:
             raise ValueError("num should be >= 1, is now {num}")
@@ -704,7 +713,7 @@ class Reach(object):
         """Compute the similarity between a vector and a set of items."""
         items_vec = np.stack([self.norm_vectors[self.items[x]] for x in items])
         return self._sim(vector, items_vec)
-    
+
     @classmethod
     def _sim(cls, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Distance function."""
@@ -842,7 +851,9 @@ class Reach(object):
         np.save(open(f"{filename}_vectors.npy", "wb"), self.vectors)
 
     @classmethod
-    def load_fast_format(cls, filename: PathLike, desired_dtype: Dtype = "float32") -> Reach:
+    def load_fast_format(
+        cls, filename: PathLike, desired_dtype: Dtype = "float32"
+    ) -> Reach:
         """
         Load a reach instance in fast format.
 
@@ -864,5 +875,3 @@ class Reach(object):
         vectors = np.load(open(f"{filename}_vectors.npy", "rb"))
         vectors = vectors.astype(desired_dtype)
         return cls(vectors, words, unk_index=unk_index, name=name)
-
-
