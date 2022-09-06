@@ -25,6 +25,7 @@ class TestInit(unittest.TestCase):
 
         self.assertEqual(len(instance), 6)
         self.assertEqual(instance.size, 5)
+        self.assertTrue(np.allclose(instance.vectors, vectors))
 
         sorted_words, _ = zip(*sorted(instance.items.items(), key=lambda x: x[1]))
         self.assertEqual(list(sorted_words), words)
