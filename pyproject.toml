@@ -13,6 +13,7 @@ tqdm = "*"
 [tool.poetry.dev-dependencies]
 ipython = "^8.4.0"
 black = "*"
+pre-commit = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
