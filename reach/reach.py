@@ -295,8 +295,10 @@ class Reach(object):
                     f"vector space: {diff}."
                 )
             if len(addedwords) == 0:
-                raise ValueError("No words were found because of no overlap "
-                                 "between your wordlist and the vector vocabulary")
+                raise ValueError(
+                    "No words were found because of no overlap "
+                    "between your wordlist and the vector vocabulary"
+                )
         if len(addedwords) == 0:
             raise ValueError("No words found. Reason unknown")
 
@@ -849,8 +851,10 @@ class Reach(object):
         items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
         items_dict = {"items": items, "unk_index": self.unk_index, "name": self.name}
 
-        json.dump(items_dict, open(f"{filename}_items.json", "w"))
-        np.save(open(f"{filename}_vectors.npy", "wb"), self.vectors)
+        with open(f"{filename}_items.json", "w") as file_handle:
+            json.dump(items_dict, file_handle)
+        with open(f"{filename}_vectors.npy", "wb") as file_handle:
+            np.save(file_handle, self.vectors)
 
     @classmethod
     def load_fast_format(
@@ -872,8 +876,11 @@ class Reach(object):
             {filename}_vectors.npy should be present.
 
         """
-        it = json.load(open(f"{filename}_items.json"))
-        words, unk_index, name = it["items"], it["unk_index"], it["name"]
-        vectors = np.load(open(f"{filename}_vectors.npy", "rb"))
+        with open(f"{filename}_items.json") as file_handle:
+            items = json.load(file_handle)
+        words, unk_index, name = items["items"], items["unk_index"], items["name"]
+
+        with open(f"{filename}_vectors.npy", "rb") as file_handle:
+            vectors = np.load(file_handle)
         vectors = vectors.astype(desired_dtype)
         return cls(vectors, words, unk_index=unk_index, name=name)

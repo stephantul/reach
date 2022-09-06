@@ -223,3 +223,20 @@ class TestLoad(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 instance = Reach.load(tempfile.name, num_to_load=-1)
+
+    def test_load_fast_format(self) -> None:
+
+        with NamedTemporaryFile("w+") as tempfile:
+            lines = self.lines()
+            tempfile.write(lines)
+            tempfile.seek(0)
+
+            instance = Reach.load(tempfile.name)
+            instance.save_fast_format(tempfile.name)
+            instance_2 = Reach.load_fast_format(tempfile.name)
+
+            self.assertEqual(instance.size, instance_2.size)
+            self.assertEqual(len(instance), len(instance_2))
+            self.assertTrue(np.allclose(instance.vectors, instance_2.vectors))
+            self.assertEqual(instance.unk_index, instance_2.unk_index)
+            self.assertEqual(instance.name, instance_2.name)
