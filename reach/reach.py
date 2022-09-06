@@ -197,9 +197,6 @@ class Reach(object):
             if came_from_path:
                 file_handle.close()
 
-        if len(items) == 0:
-            raise ValueError("You loaded 0 items.")
-
         if unk_word is not None:
             if unk_word not in items:
                 unk_vec = np.zeros((1, vectors.shape[1]))
@@ -297,6 +294,11 @@ class Reach(object):
                     "Not all items from your wordlist were in your "
                     f"vector space: {diff}."
                 )
+            if len(addedwords) == 0:
+                raise ValueError("No words were found because of no overlap "
+                                 "between your wordlist and the vector vocabulary")
+        if len(addedwords) == 0:
+            raise ValueError("No words found. Reason unknown")
 
         return np.array(vectors, dtype=desired_dtype), words
 
