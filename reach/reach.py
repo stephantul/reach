@@ -4,7 +4,7 @@ import json
 import logging
 from io import TextIOWrapper, open
 from pathlib import Path
-from typing import Any, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -83,14 +83,29 @@ class Reach(object):
                 "order."
             )
 
-        self.items = {w: idx for idx, w in enumerate(items)}
-        self.indices = {v: k for k, v in self.items.items()}
+        self._items: Dict[str, int] = {w: idx for idx, w in enumerate(items)}
+        self._indices: Dict[int, str] = {idx: w for w, idx in self.items.items()}
         self.vectors = np.asarray(vectors)
         self.unk_index = unk_index
         self.name = name
 
+    @property
+    def items(self) -> Dict[str, int]:
+        return self._items
+
+    @property
+    def indices(self) -> Dict[int, str]:
+        return self._indices
+
     def __len__(self) -> int:
         return len(self.items)
+
+    @property
+    def sorted_items(self) -> List[str]:
+        items: List[str] = [
+            x[0] for x in sorted(self.items.items(), key=lambda x: x[1])
+        ]
+        return items
 
     @property
     def size(self) -> int:

@@ -48,3 +48,10 @@ class TestInit(unittest.TestCase):
 
         instance = Reach(vectors, words, unk_index=1)
         self.assertEqual(instance.unk_index, 1)
+        self.assertEqual(list(instance.sorted_items), words)
+
+        with self.assertRaises(AttributeError):
+            instance.indices = [0, 1, 2]  # type: ignore
+
+        with self.assertRaises(AttributeError):
+            instance.items = {"dog": 1}  # type: ignore
