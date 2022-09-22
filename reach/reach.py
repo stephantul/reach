@@ -475,14 +475,14 @@ class Reach(object):
         show_progressbar : bool, optional, default False
             Whether to show a progressbar.
         return_names : bool, optional, default True
-            Whether to return the item names, or just the distances.
+            Whether to return the item names, or just the similarities.
 
         Returns
         -------
         sim : array
             For each items in the input the num most similar items are returned
-            in the form of (NAME, DISTANCE) tuples. If return_names is false,
-            the returned list just contains distances.
+            in the form of (NAME, SIMILARITY) tuples. If return_names is false,
+            the returned list just contains similarities.
 
         """
         if isinstance(items, str):
@@ -520,14 +520,14 @@ class Reach(object):
         show_progressbar : bool, optional, default False
             Whether to show a progressbar.
         return_names : bool, optional, default True
-            Whether to return the item names, or just the distances.
+            Whether to return the item names, or just the similarities.
 
         Returns
         -------
         sim : array
             For each items in the input the num most similar items are returned
-            in the form of (NAME, DISTANCE) tuples. If return_names is false,
-            the returned list just contains distances.
+            in the form of (NAME, SIMILARITY) tuples. If return_names is false,
+            the returned list just contains similarities.
 
         """
         if isinstance(items, str):
@@ -572,14 +572,14 @@ class Reach(object):
         show_progressbar : bool, optional, default False
             Whether to show a progressbar.
         return_names : bool, optional, default True
-            Whether to return the item names, or just the distances.
+            Whether to return the item names, or just the similarities.
 
         Returns
         -------
         sim : list of tuples.
             For each item in the input the num most similar items are returned
-            in the form of (NAME, DISTANCE) tuples. If return_names is set to
-            false, only the distances are returned.
+            in the form of (NAME, SIMILARITY) tuples. If return_names is set to
+            false, only the similarities are returned.
 
         """
         vectors = np.asarray(vectors)
@@ -618,14 +618,14 @@ class Reach(object):
         show_progressbar : bool, optional, default False
             Whether to show a progressbar.
         return_names : bool, optional, default True
-            Whether to return the item names, or just the distances.
+            Whether to return the item names, or just the similarities.
 
         Returns
         -------
         sim : list of tuples.
             For each item in the input the num most similar items are returned
-            in the form of (NAME, DISTANCE) tuples. If return_names is set to
-            false, only the distances are returned.
+            in the form of (NAME, SIMILARITY) tuples. If return_names is set to
+            false, only the similarities are returned.
 
         """
         vectors = np.array(vectors)
@@ -646,9 +646,8 @@ class Reach(object):
         show_progressbar: bool,
         return_names: bool,
     ) -> Generator[SimilarityItem, None, None]:
-        """Batched cosine distance."""
+        """Batched cosine similarity."""
         for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
-
             batch = vectors[i : i + batch_size]
             similarities = self._sim(batch, self.norm_vectors)
             for _, sims in enumerate(similarities):
@@ -667,23 +666,25 @@ class Reach(object):
         show_progressbar: bool,
         return_names: bool,
     ) -> Generator[SimilarityItem, None, None]:
-        """Batched cosine distance."""
+        """Batched cosine similarity."""
         if num < 1:
             raise ValueError("num should be >= 1, is now {num}")
 
         for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
-
             batch = vectors[i : i + batch_size]
             similarities = self._sim(batch, self.norm_vectors)
             if num == 1:
                 sorted_indices = np.argmax(similarities, 1, keepdims=True)
+            elif num >= len(self):
+                # If we want more than we have, just sort everything.
+                sorted_indices = np.stack([np.arange(len(self))] * len(vectors))
             else:
                 sorted_indices = np.argpartition(-similarities, kth=num, axis=1)
                 sorted_indices = sorted_indices[:, :num]
             for lidx, indices in enumerate(sorted_indices):
                 sims = similarities[lidx, indices]
                 if return_names:
-                    dindex = np.argsort(-sims)
+                    dindex = np.flip(np.argsort(sims))
                     yield [(self.indices[indices[d]], sims[d]) for d in dindex]
                 else:
                     yield np.flip(np.sort(sims)).tolist()
@@ -715,18 +716,18 @@ class Reach(object):
             return vectors / norm
 
         vectors = np.copy(vectors)
-        norm = np.linalg.norm(vectors, axis=1, keepdims=True)
+        norm = np.linalg.norm(vectors, axis=1)
 
         if np.any(norm == 0):
             nonzero = norm > 0
             result = np.zeros_like(vectors)
             n = norm[nonzero]  # type: ignore
             p = vectors[nonzero]
-            result[nonzero] = p / n
+            result[nonzero] = p / n[:, None]
 
             return result
         else:
-            return vectors / norm
+            return vectors / norm[:, None]
 
     def vector_similarity(self, vector: np.ndarray, items: List[str]) -> np.ndarray:
         """Compute the similarity between a vector and a set of items."""
@@ -735,9 +736,9 @@ class Reach(object):
 
     @classmethod
     def _sim(cls, x: np.ndarray, y: np.ndarray) -> np.ndarray:
-        """Distance function."""
+        """Cosine similarity function. This assumes y is normalized."""
         sim = cls.normalize(x).dot(y.T)
-        return np.clip(sim, a_min=0.0, a_max=1.0)
+        return sim
 
     def similarity(
         self, i1: Union[str, List[str]], i2: Union[str, List[str]]
