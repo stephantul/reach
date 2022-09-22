@@ -103,7 +103,7 @@ class Reach(object):
     @property
     def sorted_items(self) -> List[str]:
         items: List[str] = [
-            x[0] for x in sorted(self.items.items(), key=lambda x: x[1])
+            item for item, _ in sorted(self.items.items(), key=lambda x: x[1])
         ]
         return items
 
@@ -527,12 +527,11 @@ class Reach(object):
                 raise KeyError(f"{items} is not in the set of items.")
             items = [items]
 
-        x = np.stack([self.norm_vectors[self.items[x]] for x in items])
-
-        result = self._threshold_batch(x, batch_size, threshold, show_progressbar)
+        vectors = np.stack([self.norm_vectors[self.items[x]] for x in items])
+        result = self._threshold_batch(vectors, batch_size, threshold, show_progressbar)
 
         # list call consumes the generator.
-        return [x[1:] for x in result]
+        return [similarities[1:] for similarities in result]
 
     def nearest_neighbor(
         self,
@@ -629,7 +628,7 @@ class Reach(object):
             similarities = self._sim(batch, self.norm_vectors)
             for _, sims in enumerate(similarities):
                 indices = np.flatnonzero(sims >= threshold)
-                sorted_indices = indices[np.argsort(-sims[indices])]
+                sorted_indices = indices[np.flip(np.argsort(sims[indices]))]
                 yield [(self.indices[d], sims[d]) for d in sorted_indices]
 
     def _batch(
@@ -655,9 +654,12 @@ class Reach(object):
                 sorted_indices = np.argpartition(-similarities, kth=num, axis=1)
                 sorted_indices = sorted_indices[:, :num]
             for lidx, indices in enumerate(sorted_indices):
-                sims = similarities[lidx, indices]
-                dindex = np.flip(np.argsort(sims))
-                yield [(self.indices[indices[d]], sims[d]) for d in dindex]
+                sims_for_word = similarities[lidx, indices]
+                word_index = np.flip(np.argsort(sims_for_word))
+                yield [
+                    (self.indices[indices[idx]], sims_for_word[idx])
+                    for idx in word_index
+                ]
 
     @staticmethod
     def normalize(vectors: np.ndarray) -> np.ndarray:
@@ -701,7 +703,7 @@ class Reach(object):
 
     def vector_similarity(self, vector: np.ndarray, items: List[str]) -> np.ndarray:
         """Compute the similarity between a vector and a set of items."""
-        items_vec = np.stack([self.norm_vectors[self.items[x]] for x in items])
+        items_vec = np.stack([self.norm_vectors[self.items[item]] for item in items])
         return self._sim(vector, items_vec)
 
     @classmethod
@@ -711,17 +713,17 @@ class Reach(object):
         return sim
 
     def similarity(
-        self, i1: Union[str, List[str]], i2: Union[str, List[str]]
+        self, items_1: Union[str, List[str]], items_2: Union[str, List[str]]
     ) -> np.ndarray:
         """
-        Compute the similarity between two sets of items.
+        Compute the similarity between two collections of items.
 
         Parameters
         ----------
-        i1 : object
-            The first set of items.
-        i2 : object
-            The second set of item.
+        i1 : iterable of items
+            The first collection of items.
+        i2 : iterable of items
+            The second collection of item.
 
         Returns
         -------
@@ -729,13 +731,17 @@ class Reach(object):
             An array of similarity scores between 1 and 0.
 
         """
-        if isinstance(i1, str):
-            i1 = [i1]
-        if isinstance(i2, str):
-            i2 = [i2]
-        i1_vec = np.stack([self.norm_vectors[self.items[x]] for x in i1])
-        i2_vec = np.stack([self.norm_vectors[self.items[x]] for x in i2])
-        return self._sim(i1_vec, i2_vec)
+        if isinstance(items_1, str):
+            items_1 = [items_1]
+        if isinstance(items_2, str):
+            items_2 = [items_2]
+        items_1_matrix = np.stack(
+            [self.norm_vectors[self.items[item]] for item in items_1]
+        )
+        items_2_matrix = np.stack(
+            [self.norm_vectors[self.items[item]] for item in items_2]
+        )
+        return self._sim(items_1_matrix, items_2_matrix)
 
     def intersect(self, wordlist: List[str]) -> Reach:
         """
@@ -752,13 +758,13 @@ class Reach(object):
         # Remove duplicates and oov words.
         wordlist = list(set(self.items) & set(wordlist))
         # Get indices of intersection.
-        indices = sorted([self.items[x] for x in wordlist])
+        indices = sorted([self.items[word] for word in wordlist])
         # Set unk_index to None if it is None or if it is not in indices
         unk_index = self.unk_index if self.unk_index in indices else None
         # Index vectors
         vectors = self.vectors[indices]
         # Index words
-        wordlist = [self.indices[x] for x in indices]
+        wordlist = [self.indices[index] for index in indices]
         return Reach(vectors, wordlist, unk_index=unk_index)
 
     def union(self, other: Reach, check: bool = True) -> Reach:
@@ -781,15 +787,15 @@ class Reach(object):
         union = sorted(set(self.items) | set(other.items))
         if check:
             intersection = set(self.items) & set(other.items)
-            for x in intersection:
-                if not np.allclose(self[x], other[x]):
-                    raise ValueError(f"Term {x} was not the same in both instances")
+            for item in intersection:
+                if not np.allclose(self[item], other[item]):
+                    raise ValueError(f"Term {item} was not the same in both instances")
         vectors = []
-        for x in union:
+        for item in union:
             try:
-                vectors.append(self[x])
+                vectors.append(self[item])
             except KeyError:
-                vectors.append(other[x])
+                vectors.append(other[item])
 
         return Reach(np.stack(vectors), union)
 
