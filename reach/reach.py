@@ -899,3 +899,8 @@ class Reach(object):
             vectors = np.load(file_handle)
         vectors = vectors.astype(desired_dtype)
         return cls(vectors, words, unk_index=unk_index, name=name)
+
+
+def normalize(vectors: np.ndarray) -> np.ndarray:
+    """Normalize an array to unit length."""
+    return Reach.normalize(vectors)
