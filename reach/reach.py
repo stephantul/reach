@@ -14,7 +14,7 @@ Dtype = Union[str, np.dtype]
 File = Union[Path, TextIOWrapper]
 PathLike = Union[str, Path]
 Matrix = Union[np.ndarray, List[np.ndarray]]
-SimilarityItem = List[Union[Tuple[str, float], Tuple[float]]]
+SimilarityItem = List[Tuple[str, float]]
 SimilarityResult = List[SimilarityItem]
 
 
@@ -458,7 +458,6 @@ class Reach(object):
         num: int = 10,
         batch_size: int = 100,
         show_progressbar: bool = False,
-        return_names: bool = True,
     ) -> SimilarityResult:
         """
         Return the num most similar items to a given list of items.
@@ -474,15 +473,12 @@ class Reach(object):
             the batch size may increase the speed.
         show_progressbar : bool, optional, default False
             Whether to show a progressbar.
-        return_names : bool, optional, default True
-            Whether to return the item names, or just the similarities.
 
         Returns
         -------
         sim : array
             For each items in the input the num most similar items are returned
-            in the form of (NAME, SIMILARITY) tuples. If return_names is false,
-            the returned list just contains similarities.
+            in the form of (NAME, SIMILARITY) tuples.
 
         """
         if isinstance(items, str):
@@ -492,7 +488,7 @@ class Reach(object):
 
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
 
-        result = self._batch(x, batch_size, num + 1, show_progressbar, return_names)
+        result = self._batch(x, batch_size, num + 1, show_progressbar)
 
         # list call consumes the generator.
         return [x[1:] for x in result]
@@ -503,7 +499,6 @@ class Reach(object):
         threshold: float = 0.5,
         batch_size: int = 100,
         show_progressbar: bool = False,
-        return_names: bool = True,
     ) -> SimilarityResult:
         """
         Return all items whose similarity is higher than threshold.
@@ -519,15 +514,12 @@ class Reach(object):
             the batch size may increase the speed.
         show_progressbar : bool, optional, default False
             Whether to show a progressbar.
-        return_names : bool, optional, default True
-            Whether to return the item names, or just the similarities.
 
         Returns
         -------
         sim : array
             For each items in the input the num most similar items are returned
-            in the form of (NAME, SIMILARITY) tuples. If return_names is false,
-            the returned list just contains similarities.
+            in the form of (NAME, SIMILARITY) tuples.
 
         """
         if isinstance(items, str):
@@ -537,9 +529,7 @@ class Reach(object):
 
         x = np.stack([self.norm_vectors[self.items[x]] for x in items])
 
-        result = self._threshold_batch(
-            x, batch_size, threshold, show_progressbar, return_names
-        )
+        result = self._threshold_batch(x, batch_size, threshold, show_progressbar)
 
         # list call consumes the generator.
         return [x[1:] for x in result]
@@ -550,7 +540,6 @@ class Reach(object):
         num: int = 10,
         batch_size: int = 100,
         show_progressbar: bool = False,
-        return_names: bool = True,
     ) -> SimilarityResult:
         """
         Find the nearest neighbors to some arbitrary vector.
@@ -571,24 +560,19 @@ class Reach(object):
             the batch size may increase speed.
         show_progressbar : bool, optional, default False
             Whether to show a progressbar.
-        return_names : bool, optional, default True
-            Whether to return the item names, or just the similarities.
 
         Returns
         -------
         sim : list of tuples.
             For each item in the input the num most similar items are returned
-            in the form of (NAME, SIMILARITY) tuples. If return_names is set to
-            false, only the similarities are returned.
+            in the form of (NAME, SIMILARITY) tuples.
 
         """
         vectors = np.asarray(vectors)
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
-        return list(
-            self._batch(vectors, batch_size, num, show_progressbar, return_names)
-        )
+        return list(self._batch(vectors, batch_size, num, show_progressbar))
 
     def nearest_neighbor_threshold(
         self,
@@ -596,7 +580,6 @@ class Reach(object):
         threshold: float = 0.5,
         batch_size: int = 100,
         show_progressbar: bool = False,
-        return_names: bool = True,
     ) -> SimilarityResult:
         """
         Find the nearest neighbors to some arbitrary vector.
@@ -617,15 +600,12 @@ class Reach(object):
             the batch size may increase speed.
         show_progressbar : bool, optional, default False
             Whether to show a progressbar.
-        return_names : bool, optional, default True
-            Whether to return the item names, or just the similarities.
 
         Returns
         -------
         sim : list of tuples.
             For each item in the input the num most similar items are returned
-            in the form of (NAME, SIMILARITY) tuples. If return_names is set to
-            false, only the similarities are returned.
+            in the form of (NAME, SIMILARITY) tuples.
 
         """
         vectors = np.array(vectors)
@@ -633,9 +613,7 @@ class Reach(object):
             vectors = vectors[None, :]
 
         return list(
-            self._threshold_batch(
-                vectors, batch_size, threshold, show_progressbar, return_names
-            )
+            self._threshold_batch(vectors, batch_size, threshold, show_progressbar)
         )
 
     def _threshold_batch(
@@ -644,7 +622,6 @@ class Reach(object):
         batch_size: int,
         threshold: float,
         show_progressbar: bool,
-        return_names: bool,
     ) -> Generator[SimilarityItem, None, None]:
         """Batched cosine similarity."""
         for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
@@ -653,10 +630,7 @@ class Reach(object):
             for _, sims in enumerate(similarities):
                 indices = np.flatnonzero(sims >= threshold)
                 sorted_indices = indices[np.argsort(-sims[indices])]
-                if return_names:
-                    yield [(self.indices[d], sims[d]) for d in sorted_indices]
-                else:
-                    yield list(sims[sorted_indices])
+                yield [(self.indices[d], sims[d]) for d in sorted_indices]
 
     def _batch(
         self,
@@ -664,7 +638,6 @@ class Reach(object):
         batch_size: int,
         num: int,
         show_progressbar: bool,
-        return_names: bool,
     ) -> Generator[SimilarityItem, None, None]:
         """Batched cosine similarity."""
         if num < 1:
@@ -683,11 +656,8 @@ class Reach(object):
                 sorted_indices = sorted_indices[:, :num]
             for lidx, indices in enumerate(sorted_indices):
                 sims = similarities[lidx, indices]
-                if return_names:
-                    dindex = np.flip(np.argsort(sims))
-                    yield [(self.indices[indices[d]], sims[d]) for d in dindex]
-                else:
-                    yield np.flip(np.sort(sims)).tolist()
+                dindex = np.flip(np.argsort(sims))
+                yield [(self.indices[indices[d]], sims[d]) for d in dindex]
 
     @staticmethod
     def normalize(vectors: np.ndarray) -> np.ndarray:
