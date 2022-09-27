@@ -67,6 +67,15 @@ class TestSimilarity(unittest.TestCase):
             sim = instance.similarity(w1, w2)[0][0]
             self.assertTrue(np.isclose(sim, self.cosine(instance[w1], instance[w2])))
 
+    def test_correct_item_gets_deleted(self) -> None:
+        words, vectors = self.data()
+        instance = Reach(vectors, words)
+
+        vectors = np.ones_like(vectors)
+        for word, result in zip(words, instance.most_similar(words)):
+            result_itemset = set(x[0] for x in result)
+            self.assertEqual(set(words) - {word}, result_itemset)
+
     def test_ranking(self) -> None:
         words, vectors = self.data()
         instance = Reach(vectors, words)
@@ -80,3 +89,80 @@ class TestSimilarity(unittest.TestCase):
             ]
             indices = [instance.items[word] for word in similar_words]
             self.assertEqual(indices, argsorted_matrix[idx].tolist())
+
+    def test_item_similarity(self) -> None:
+        words, vectors = self.data()
+        instance = Reach(vectors, words)
+
+        sims = instance.norm_vectors @ instance.norm_vectors.T
+        sims_2 = instance.similarity(words, words)
+        self.assertTrue(np.allclose(sims, sims_2))
+
+    def test_batch_single(self) -> None:
+        words, vectors = self.data()
+        instance = Reach(vectors, words)
+
+        # Test if batch is equal to single.
+        result = [[x[0] for x in sublist] for sublist in instance.most_similar(words)]
+        other_result = []
+        for word in words:
+            other_result.append([x[0] for x in instance.most_similar(word)[0]])
+
+        self.assertEqual(result, other_result)
+
+        result = [
+            [x[0] for x in sublist]
+            for sublist in instance.threshold(words, threshold=0.0)
+        ]
+        other_result = []
+        for word in words:
+            other_result.append(
+                [x[0] for x in instance.threshold(word, threshold=0.0)[0]]
+            )
+
+        self.assertEqual(result, other_result)
+
+    def test_threshold(self) -> None:
+        words, vectors = self.data()
+        instance = Reach(vectors, words)
+
+        sim_matrix = instance.norm_vectors @ instance.norm_vectors.T
+        sim_matrix[np.diag_indices_from(sim_matrix)] = -100
+
+        threshold = 0.0
+        for idx, w in enumerate(instance.items):
+            above_threshold_1: List[str] = [
+                x[0] for x in instance.threshold(w, threshold=threshold)[0]
+            ]
+            indices_1 = [instance.items[word] for word in above_threshold_1]
+            sorted_items = sorted(
+                enumerate(sim_matrix[idx]), key=lambda x: x[1], reverse=True
+            )
+            self.assertEqual(
+                indices_1, [idx for idx, x in sorted_items if x > threshold]
+            )
+
+        threshold = 0.9
+        for idx, w in enumerate(instance.items):
+            above_threshold_2: List[str] = [
+                x[0] for x in instance.threshold(w, threshold=threshold)[0]
+            ]
+            indices_2 = [instance.items[word] for word in above_threshold_2]
+            self.assertEqual(indices_2, [])
+
+    def test_nearest_neighbor(self) -> None:
+        words, vectors = self.data()
+        instance = Reach(vectors, words)
+
+        for word, vector in zip(words, vectors):
+            nn1 = instance.nearest_neighbor(vector)[0][1:]
+            nn2 = instance.most_similar(word)[0]
+            self.assertEqual(nn1, nn2)
+
+        threshold = 0.0
+        for word, vector in zip(words, vectors):
+            nn1 = instance.nearest_neighbor_threshold(vector, threshold=threshold)[0][
+                1:
+            ]
+            nn2 = instance.threshold(word, threshold=threshold)[0]
+            self.assertEqual(nn1, nn2)

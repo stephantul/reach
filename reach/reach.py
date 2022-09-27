@@ -363,30 +363,6 @@ class Reach(object):
         else:
             return self.vectors[index]
 
-    def mean_vector(
-        self, tokens: List[str], remove_oov: bool = False, norm: bool = False
-    ) -> np.ndarray:
-        """
-        Get the mean vector of a sentence.
-
-        Parameters
-        ----------
-        tokens : object or list of objects
-            The tokens to take the mean of.
-        remove_oov : bool, optional, default False
-            Whether to remove OOV items. If False, OOV items are replaced by
-            the UNK glyph.
-        norm : bool, optional, default False
-            Whether to take the mean of the unit vectors, or the regular vectors.
-
-        Returns
-        -------
-        mean : numpy array
-            A vector with M dimensions, where M is the size of the vector space.
-
-        """
-        return self.vectorize(tokens, remove_oov, norm).mean(0)
-
     def bow(self, tokens: List[str], remove_oov: bool = False) -> List[int]:
         """
         Create a bow representation of a list of tokens.
@@ -486,16 +462,25 @@ class Reach(object):
                 raise KeyError(f"{items} is not in the set of items.")
             items = [items]
 
-        x = np.stack([self.norm_vectors[self.items[x]] for x in items])
+        vectors = np.stack([self.norm_vectors[self.items[item]] for item in items])
+        result = self._most_similar_batch(
+            vectors, batch_size, num + 1, show_progressbar
+        )
 
-        result = self._batch(x, batch_size, num + 1, show_progressbar)
-
-        # list call consumes the generator.
-        return [x[1:] for x in result]
+        out: SimilarityResult = []
+        # Remove queried item from similarity list
+        for query_item, item_result in zip(items, result):
+            without_query = [
+                (item, similarity)
+                for item, similarity in item_result
+                if item != query_item
+            ]
+            out.append(without_query)
+        return out
 
     def threshold(
         self,
-        items: List[str],
+        items: Union[str, List[str]],
         threshold: float = 0.5,
         batch_size: int = 100,
         show_progressbar: bool = False,
@@ -530,8 +515,16 @@ class Reach(object):
         vectors = np.stack([self.norm_vectors[self.items[x]] for x in items])
         result = self._threshold_batch(vectors, batch_size, threshold, show_progressbar)
 
-        # list call consumes the generator.
-        return [similarities[1:] for similarities in result]
+        out: SimilarityResult = []
+        # Remove queried item from similarity list
+        for query_item, item_result in zip(items, result):
+            without_query = [
+                (item, similarity)
+                for item, similarity in item_result
+                if item != query_item
+            ]
+            out.append(without_query)
+        return out
 
     def nearest_neighbor(
         self,
@@ -571,7 +564,9 @@ class Reach(object):
         if np.ndim(vectors) == 1:
             vectors = vectors[None, :]
 
-        return list(self._batch(vectors, batch_size, num, show_progressbar))
+        return list(
+            self._most_similar_batch(vectors, batch_size, num, show_progressbar)
+        )
 
     def nearest_neighbor_threshold(
         self,
@@ -631,7 +626,7 @@ class Reach(object):
                 sorted_indices = indices[np.flip(np.argsort(sims[indices]))]
                 yield [(self.indices[d], sims[d]) for d in sorted_indices]
 
-    def _batch(
+    def _most_similar_batch(
         self,
         vectors: np.ndarray,
         batch_size: int,
