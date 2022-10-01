@@ -262,7 +262,6 @@ class Reach(object):
         except ValueError:
             size = len(firstline.split(sep)) - 1
             logger.info(f"Vector space: {size} dim, # items unknown")
-            word, rest = firstline.split(sep, 1)
             # If the first line is correctly parseable, set header to False.
             header = False
         file_handle.seek(0)
