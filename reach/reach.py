@@ -723,7 +723,7 @@ class Reach(object):
         Returns
         -------
         sim : array of floats
-            An array of similarity scores between 1 and 0.
+            An array of similarity scores between 1 and -1.
 
         """
         if isinstance(items_1, str):
