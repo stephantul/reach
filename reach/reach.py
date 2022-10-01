@@ -89,6 +89,9 @@ class Reach(object):
         self.unk_index = unk_index
         self.name = name
 
+    def __len__(self) -> int:
+        return len(self.items)
+
     @property
     def items(self) -> Dict[str, int]:
         return self._items
@@ -96,9 +99,6 @@ class Reach(object):
     @property
     def indices(self) -> Dict[int, str]:
         return self._indices
-
-    def __len__(self) -> int:
-        return len(self.items)
 
     @property
     def sorted_items(self) -> List[str]:
@@ -715,9 +715,9 @@ class Reach(object):
 
         Parameters
         ----------
-        i1 : iterable of items
+        items_1 : iterable of items
             The first collection of items.
-        i2 : iterable of items
+        items_2 : iterable of items
             The second collection of item.
 
         Returns
