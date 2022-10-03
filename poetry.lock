@@ -95,11 +95,14 @@ python-versions = "*"
 
 [[package]]
 name = "executing"
-version = "1.0.0"
+version = "1.1.0"
 description = "Get the currently executing AST node of a frame, and other information"
 category = "dev"
 optional = false
 python-versions = "*"
+
+[package.extras]
+tests = ["rich", "littleutils", "pytest", "asttokens"]
 
 [[package]]
 name = "filelock"
@@ -115,7 +118,7 @@ testing = ["covdefaults (>=2.2)", "coverage (>=6.4.2)", "pytest (>=7.1.2)", "pyt
 
 [[package]]
 name = "identify"
-version = "2.5.4"
+version = "2.5.5"
 description = "File identification library for Python"
 category = "dev"
 optional = false
@@ -126,7 +129,7 @@ license = ["ukkonen"]
 
 [[package]]
 name = "ipython"
-version = "8.4.0"
+version = "8.5.0"
 description = "IPython: Productive Interactive Computing"
 category = "dev"
 optional = false
@@ -141,7 +144,7 @@ jedi = ">=0.16"
 matplotlib-inline = "*"
 pexpect = {version = ">4.3", markers = "sys_platform != \"win32\""}
 pickleshare = "*"
-prompt-toolkit = ">=2.0.0,<3.0.0 || >3.0.0,<3.0.1 || >3.0.1,<3.1.0"
+prompt-toolkit = ">3.0.1,<3.1.0"
 pygments = ">=2.4.0"
 stack-data = "*"
 traitlets = ">=5"
@@ -203,7 +206,7 @@ python-versions = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*
 
 [[package]]
 name = "numpy"
-version = "1.23.2"
+version = "1.23.3"
 description = "NumPy is the fundamental package for array computing with Python."
 category = "main"
 optional = false
@@ -307,6 +310,14 @@ python-versions = "*"
 tests = ["pytest"]
 
 [[package]]
+name = "pyahocorasick"
+version = "1.4.4"
+description = "pyahocorasick is a fast and memory efficient library for exact or approximate multi-pattern string search.  With the \"ahocorasick.Automaton\" class, you can find multiple key string occurrences at once in some input text.  You can use it as a plain dict-like Trie or convert a Trie to an automaton for efficient Aho-Corasick search. And pickle to disk for easy reuse of large automatons. Implemented in C and tested on Python 3.6+. Works on Linux, macOS and Windows. BSD-3-Cause license."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pygments"
 version = "2.13.0"
 description = "Pygments is a syntax highlighting package written in Python."
@@ -335,7 +346,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "stack-data"
-version = "0.5.0"
+version = "0.5.1"
 description = "Extract data from python stack frames and tracebacks for informative displays"
 category = "dev"
 optional = false
@@ -384,7 +395,7 @@ telegram = ["requests"]
 
 [[package]]
 name = "traitlets"
-version = "5.3.0"
+version = "5.4.0"
 description = ""
 category = "dev"
 optional = false
@@ -403,7 +414,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "virtualenv"
-version = "20.16.4"
+version = "20.16.5"
 description = "Virtual Python Environment builder"
 category = "dev"
 optional = false
@@ -429,7 +440,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "918b1fd0e32bd021cc1ba6d1f35aef19f7199408c42594e388b242c5f6cbb5d6"
+content-hash = "585c0d076d83b25d13f1d5755bff906e010fd98cd75bffd0c6c082381f2dce7a"
 
 [metadata.files]
 appnope = [
@@ -462,10 +473,7 @@ distlib = []
 executing = []
 filelock = []
 identify = []
-ipython = [
-    {file = "ipython-8.4.0-py3-none-any.whl", hash = "sha256:7ca74052a38fa25fe9bedf52da0be7d3fdd2fb027c3b778ea78dfe8c212937d1"},
-    {file = "ipython-8.4.0.tar.gz", hash = "sha256:f2db3a10254241d9b447232cec8b424847f338d9d36f9a577a6192c332a46abd"},
-]
+ipython = []
 jedi = [
     {file = "jedi-0.18.1-py2.py3-none-any.whl", hash = "sha256:637c9635fcf47945ceb91cd7f320234a7be540ded6f3e99a50cb6febdfd1ba8d"},
     {file = "jedi-0.18.1.tar.gz", hash = "sha256:74137626a64a99c8eb6ae5832d99b3bdd7d29a3850fe2aa80a4126b2a7d949ab"},
@@ -504,6 +512,7 @@ pure-eval = [
     {file = "pure_eval-0.2.2-py3-none-any.whl", hash = "sha256:01eaab343580944bc56080ebe0a674b39ec44a945e6d09ba7db3cb8cec289350"},
     {file = "pure_eval-0.2.2.tar.gz", hash = "sha256:2b45320af6dfaa1750f543d714b6d1c520a1688dec6fd24d339063ce0aaa9ac3"},
 ]
+pyahocorasick = []
 pygments = []
 pyyaml = [
     {file = "PyYAML-6.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d4db7c7aef085872ef65a8fd7d6d09a14ae91f691dec3e87ee5ee0539d516f53"},
@@ -554,10 +563,7 @@ tomli = [
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
 ]
 tqdm = []
-traitlets = [
-    {file = "traitlets-5.3.0-py3-none-any.whl", hash = "sha256:65fa18961659635933100db8ca120ef6220555286949774b9cfc106f941d1c7a"},
-    {file = "traitlets-5.3.0.tar.gz", hash = "sha256:0bb9f1f9f017aa8ec187d8b1b2a7a6626a2a1d877116baba52a129bfa124f8e2"},
-]
+traitlets = []
 typing-extensions = [
     {file = "typing_extensions-4.3.0-py3-none-any.whl", hash = "sha256:25642c956049920a5aa49edcdd6ab1e06d7e5d467fc00e0506c44ac86fbfca02"},
     {file = "typing_extensions-4.3.0.tar.gz", hash = "sha256:e6d2677a32f47fc7eb2795db1dd15c1f34eff616bcaf2cfb5e997f854fa1c4a6"},

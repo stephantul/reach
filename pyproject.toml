@@ -9,6 +9,7 @@ license = "MIT"
 python = "^3.8"
 numpy = "*"
 tqdm = "*"
+pyahocorasick = "*"
 
 [tool.poetry.dev-dependencies]
 ipython = "^8.4.0"
