@@ -61,6 +61,21 @@ class TestAuto(unittest.TestCase):
             instance.is_valid_token("etc.", "we like this and that,etc....", 25)
         )
 
+    def test_lower(self) -> None:
+        words, vectors = self.data()
+        instance = AutoReach(vectors, words, lowercase=False)
+        self.assertFalse(instance.lowercase)
+
+        instance = AutoReach(vectors, words, lowercase=True)
+        self.assertTrue(instance.lowercase)
+
+        instance = AutoReach(vectors, words, lowercase="auto")
+        self.assertTrue(instance.lowercase)
+
+        words[0] = words[0].title()
+        instance = AutoReach(vectors, words, lowercase="auto")
+        self.assertFalse(instance.lowercase)
+
     def test_bow(self) -> None:
         words, vectors = self.data()
         instance = AutoReach(vectors, words)

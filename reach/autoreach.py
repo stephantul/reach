@@ -18,6 +18,7 @@ class AutoReach(Reach):
         self,
         vectors: Matrix,
         items: List[str],
+        lowercase: Union[str, bool] = "auto",
         name: str = "",
         unk_index: Optional[int] = None,
     ) -> None:
@@ -26,6 +27,13 @@ class AutoReach(Reach):
         for item, index in tqdm(self.items.items()):
             self.automaton.add_word(item, (item, index))
         self.automaton.make_automaton()
+        if lowercase == "auto":
+            lowercase = all([x == x.lower() for x in self.items])
+        self._lowercase = bool(lowercase)
+
+    @property
+    def lowercase(self) -> bool:
+        return self._lowercase
 
     def is_valid_token(self, token: str, tokens: str, end_index: int) -> bool:
         """Checks whether a token is valid in the current context."""
@@ -60,6 +68,8 @@ class AutoReach(Reach):
             raise ValueError("You did not pass a string.")
         out = []
         tokens = f" {tokens} "
+        if self.lowercase:
+            tokens = tokens.lower()
         for end_index, (token, index) in self.automaton.iter_long(tokens):
             if self.is_valid_token(token, tokens, end_index):
                 out.append(index)
