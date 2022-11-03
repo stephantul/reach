@@ -69,7 +69,7 @@ autoreach
 
 Reach also has a way of automatically inferring words from strings of texts without using a pre-defined tokenizer. This is useful because there might be mismatches between the tokenizer you happen to have on hand, and the word vectors you use. For example, if your vector space contains an embedding for the word ``"it's"``, and your tokenizer splits this string into two tokens: ``["it", "'s"]``, the embedding for ``"it's"`` will never be found.
 
-autoreach solves this problem by only finding words from your pre-defined vocabulary in a string, this removing the need for any tokenization. We use the `aho-corasick (https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm)`_ algorithm, which allows us to find substrings in linear time. The downside of using aho-corasick is that it also finds substrings of regular words. For example, the word ``the`` will be found as a substring of ``these``. To circumvent this, we perform a clean-up step.
+autoreach solves this problem by only finding words from your pre-defined vocabulary in a string, this removing the need for any tokenization. We use the `aho-corasick <https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm>`_ algorithm, which allows us to find substrings in linear time. The downside of using aho-corasick is that it also finds substrings of regular words. For example, the word ``the`` will be found as a substring of ``these``. To circumvent this, we perform a clean-up step.
 
 Warning!
 ''''''''
