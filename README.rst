@@ -62,3 +62,11 @@ Example
 
   # vectorize corpus.
   transformed = r.transform(corpus)
+
+
+autoreach
+=========
+
+Reach also has a way of automatically inferring words from strings of texts without using a pre-defined tokenizer. This is useful because there might be mismatches between the tokenizer you happen to have on hand, and the word vectors you use. For example, if your vector space contains an embedding for the word `"it's"`, and your tokenizer splits this string into two tokens: `["it", "'s"]`, the embedding for `"it's"` will never be found.
+
+autoreach solves this problem by only finding words from your pre-defined vocabulary in a string, this removing the need for any tokenization. It does this by using the `aho-corasick` algorithm
