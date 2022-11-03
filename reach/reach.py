@@ -135,8 +135,9 @@ class Reach(object):
             self._norm_vectors = self.normalize(self.vectors)
         return self._norm_vectors
 
-    @staticmethod
+    @classmethod
     def load(
+        cls,
         vector_file: Union[File, str],
         wordlist: Optional[Tuple[str, ...]] = None,
         num_to_load: Optional[int] = None,
@@ -223,7 +224,7 @@ class Reach(object):
         else:
             unk_index = None
 
-        return Reach(
+        return cls(
             vectors,
             items,
             name=name,
@@ -323,7 +324,10 @@ class Reach(object):
         return self.vectors[self.items[item]]
 
     def vectorize(
-        self, tokens: List[str], remove_oov: bool = False, norm: bool = False
+        self,
+        tokens: Union[List[str], str],
+        remove_oov: bool = False,
+        norm: bool = False,
     ) -> np.ndarray:
         """
         Vectorize a sentence by replacing all items with their vectors.
@@ -362,7 +366,7 @@ class Reach(object):
         else:
             return self.vectors[index]
 
-    def bow(self, tokens: List[str], remove_oov: bool = False) -> List[int]:
+    def bow(self, tokens: Union[List[str], str], remove_oov: bool = False) -> List[int]:
         """
         Create a bow representation of a list of tokens.
 
@@ -381,6 +385,9 @@ class Reach(object):
             A BOW representation of the list of items.
 
         """
+        if isinstance(tokens, str):
+            raise ValueError("You passed a string instead of a list of tokens.")
+
         out = []
         for t in tokens:
             try:
@@ -693,7 +700,7 @@ class Reach(object):
 
             return result
         else:
-            return vectors / norm[:, None]
+            return vectors / norm[:, None]  # type: ignore
 
     def vector_similarity(self, vector: np.ndarray, items: List[str]) -> np.ndarray:
         """Compute the similarity between a vector and a set of items."""
