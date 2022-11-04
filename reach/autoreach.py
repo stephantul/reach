@@ -2,7 +2,12 @@ import re
 from string import punctuation
 from typing import Optional, List, Union
 
-from ahocorasick import Automaton
+try:
+    from ahocorasick import Automaton
+except ImportError:
+    raise ImportError(
+        "pyahocorasick is not installed. Please reinstall reach with `pip install reach[auto]`"
+    )
 from tqdm import tqdm
 
 from reach.reach import Reach, Matrix
