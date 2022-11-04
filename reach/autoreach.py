@@ -2,8 +2,12 @@ import re
 from string import punctuation
 from typing import Optional, List, Union
 
-from ahocorasick import Automaton
-from tqdm import tqdm
+try:
+    from ahocorasick import Automaton
+except ImportError:
+    raise ImportError(
+        "pyahocorasick is not installed. Please reinstall reach with `pip install reach[auto]`"
+    )
 
 from reach.reach import Reach, Matrix
 
@@ -24,7 +28,7 @@ class AutoReach(Reach):
     ) -> None:
         super().__init__(vectors, items, name, unk_index)
         self.automaton = Automaton()
-        for item, index in tqdm(self.items.items()):
+        for item, index in self.items.items():
             self.automaton.add_word(item, (item, index))
         self.automaton.make_automaton()
         if lowercase == "auto":
