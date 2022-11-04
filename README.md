@@ -20,7 +20,7 @@ If you just want `reach`:
 pip install reach
 ```
 
-If you also want `AutoReach` (see below):
+If you also want [`AutoReach`](#foo):
 
 ```
 pip install reach[auto]
