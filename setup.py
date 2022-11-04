@@ -32,5 +32,5 @@ setup(
     ],
     keywords="word vectors natural language processing",
     zip_safe=True,
-    long_description=Path("README.rst").read_text(),
+    long_description=Path("README.md").read_text(),
 )
