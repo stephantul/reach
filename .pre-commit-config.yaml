@@ -1,0 +1,50 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.4.0
+    hooks:
+      - id: check-ast
+        description: Simply check whether files parse as valid python.
+      - id: trailing-whitespace
+        description: Trims trailing whitespace
+      - id: end-of-file-fixer
+        description: Makes sure files end in a newline and only a newline.
+      - id: check-yaml
+        description: Attempts to load all yaml files to verify syntax.
+      - id: check-json
+        description: Attempts to load all json files to verify syntax.
+      - id: check-added-large-files
+        description: Prevent giant files from being committed.
+      - id: check-builtin-literals
+        description: Require literal syntax when initializing empty, or zero Python builtin types.
+      - id: check-case-conflict
+        description: Check for files with names that would conflict on case-insensitive filesystems like MacOS/Windows.
+      - id: check-merge-conflict
+        description: Check for files that contain merge conflict strings.
+      - id: no-commit-to-branch
+        description: Protect specific branches from direct checkins.
+      - id: forbid-new-submodules
+        description: Prevent addition of new git submodules.
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 3.8.4
+    hooks:
+      - id: flake8
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v0.950
+    hooks:
+      - id: mypy
+  - repo: https://github.com/ambv/black
+    rev: 22.6.0
+    hooks:
+      - id: black
+  - repo: local
+    hooks:
+      - id: unittest
+        name: unittest
+        entry: python -m unittest
+        language: system
+        types: [ python ]
+        pass_filenames: false
+        always_run: true
+        stages: [ commit ]
