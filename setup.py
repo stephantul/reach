@@ -7,8 +7,7 @@ from setuptools import setup, find_packages
 setup(
     name="reach",
     version="4.0.0",
-    description="A light-weight package for working with pre-trained"
-    " word embeddings",
+    description="A light-weight package for working with pre-trained word embeddings",
     author="Stéphan Tulkens",
     author_email="stephantul@gmail.com",
     url="https://github.com/stephantul/reach",
@@ -33,4 +32,5 @@ setup(
     keywords="word vectors natural language processing",
     zip_safe=True,
     long_description=Path("README.md").read_text(),
+    long_description_content_type='text/markdown',
 )
