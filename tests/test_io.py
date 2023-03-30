@@ -64,9 +64,13 @@ class TestLoad(unittest.TestCase):
             instance = Reach.load(tempfile.name, unk_word=None)
             self.assertEqual(instance.unk_index, None)
 
-            instance = Reach.load(tempfile.name, unk_word="[UNK]")
+            desired_dtype = "float32"
+            instance = Reach.load(
+                tempfile.name, unk_word="[UNK]", desired_dtype=desired_dtype
+            )
             self.assertEqual(instance.unk_index, 0)
             self.assertEqual(instance.items["[UNK]"], instance.unk_index)
+            self.assertEqual(instance.vectors.dtype, desired_dtype)
 
             instance = Reach.load(tempfile.name, unk_word="splinter")
             self.assertEqual(instance.unk_index, 2)
