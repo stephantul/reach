@@ -215,7 +215,7 @@ class Reach(object):
 
         if unk_word is not None:
             if unk_word not in items:
-                unk_vec = np.zeros((1, vectors.shape[1]))
+                unk_vec = np.zeros((1, vectors.shape[1]), dtype=desired_dtype)
                 vectors = np.concatenate([unk_vec, vectors], 0)
                 items = [unk_word] + items
                 unk_index = 0
