@@ -166,3 +166,20 @@ class TestSimilarity(unittest.TestCase):
             ]
             nn2 = instance.threshold(word, threshold=threshold)[0]
             self.assertEqual(nn1, nn2)
+
+    def test_neighbor_similarity(self) -> None:
+        words, vectors = self.data()
+        instance = Reach(vectors, words)
+
+        result = instance.norm_vectors[0] @ instance.norm_vectors[1:].T
+        result2 = instance.vector_similarity(vectors[0], words[1:])
+
+        self.assertTrue(np.allclose(result, result2))
+
+        result = instance.norm_vectors[0] @ instance.norm_vectors[1].T
+        result2 = instance.vector_similarity(vectors[0], words[1])
+
+        self.assertEqual(result, result2)
+
+        result3 = instance.vector_similarity(vectors[0], [words[1]])
+        self.assertEqual(result2, result3)
