@@ -1,6 +1,6 @@
 import re
 from string import punctuation
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Hashable
 
 try:
     from ahocorasick import Automaton
@@ -10,7 +10,7 @@ except ImportError:
         " reach[auto]`"
     )
 
-from reach.reach import Reach, Matrix
+from reach.reach import Reach, Matrix, Tokens
 
 PUNCT = set(punctuation)
 SPACE = set("\n \t")
@@ -22,18 +22,23 @@ class AutoReach(Reach):
     def __init__(
         self,
         vectors: Matrix,
-        items: List[str],
+        items: List[Hashable],
         lowercase: Union[str, bool] = "auto",
         name: str = "",
         unk_index: Optional[int] = None,
     ) -> None:
         super().__init__(vectors, items, name, unk_index)
         self.automaton = Automaton()
+        if not all(isinstance(item, str) for item in self.items):
+            raise ValueError("All your items should be strings.")
         for item, index in self.items.items():
             self.automaton.add_word(item, (item, index))
         self.automaton.make_automaton()
         if lowercase == "auto":
-            lowercase = all([x == x.lower() for x in self.items])
+            # NOTE: we use type ignore here because we know we have strings here.
+            lowercase = all(
+                [item == item.lower() for item in self.items]  # type: ignore
+            )
         self._lowercase = bool(lowercase)
 
     @property
@@ -52,7 +57,7 @@ class AutoReach(Reach):
 
         return True
 
-    def bow(self, tokens: Union[List[str], str], remove_oov: bool = True) -> List[int]:
+    def bow(self, tokens: Tokens, remove_oov: bool = True) -> List[int]:
         """
         Create a bow representation from a string.
 
