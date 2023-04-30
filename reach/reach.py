@@ -122,7 +122,8 @@ class Reach(object):
             raise ValueError(f"Your array does not have 2 dimensions: {np.ndim(x)}")
         if not x.shape[0] == len(self.items):
             raise ValueError(
-                f"Your array does not have the correct length, got {x.shape[0]}, expected {len(self.items)}"
+                f"Your array does not have the correct length, got {x.shape[0]},"
+                f" expected {len(self.items)}"
             )
         self._vectors = x
         # Make sure norm vectors is updated.
@@ -271,7 +272,6 @@ class Reach(object):
             truncate_embeddings = size
 
         for idx, line in enumerate(file_handle):
-
             if header and idx == 0:
                 continue
 
@@ -288,7 +288,10 @@ class Reach(object):
                 raise ValueError(e)
 
             if len(rest.split(sep)) != size:
-                e = f"Incorrect input at index {idx+1}, size is {len(rest.split())}, expected {size}."
+                e = (
+                    f"Incorrect input at index {idx+1}, size is {len(rest.split())},"
+                    f" expected {size}."
+                )
                 if recover_from_errors:
                     logger.warning(e)
                     continue
@@ -787,7 +790,8 @@ class Reach(object):
         """
         if self.size != other.size:
             raise ValueError(
-                f"The size of the embedding spaces was not the same: {self.size} and {other.size}"
+                f"The size of the embedding spaces was not the same: {self.size} and"
+                f" {other.size}"
             )
         union = sorted(set(self.items) | set(other.items))
         if check:
@@ -818,12 +822,10 @@ class Reach(object):
 
         """
         with open(path, "w") as f:
-
             if write_header:
                 f.write(f"{self.vectors.shape[0]} {self.vectors.shape[1]}\n")
 
             for i in range(len(self.items)):
-
                 w = self.indices[i]
                 vec = self.vectors[i]
                 vec_string = " ".join([str(x) for x in vec])
