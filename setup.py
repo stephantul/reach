@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="reach",
-    version="4.0.1",
+    version="4.0.2",  # noqa
     description="A light-weight package for working with pre-trained word embeddings",
     author="Stéphan Tulkens",
     author_email="stephantul@gmail.com",
@@ -29,8 +29,8 @@ setup(
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
-    keywords="word vectors natural language processing",
+    keywords=["word vectors", "natural language processing", "embeddings"],
     zip_safe=True,
     long_description=Path("README.md").read_text(),
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
 )
