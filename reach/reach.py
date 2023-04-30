@@ -702,8 +702,12 @@ class Reach(object):
         else:
             return vectors / norm[:, None]  # type: ignore
 
-    def vector_similarity(self, vector: np.ndarray, items: List[str]) -> np.ndarray:
+    def vector_similarity(
+        self, vector: np.ndarray, items: Union[str, List[str]]
+    ) -> np.ndarray:
         """Compute the similarity between a vector and a set of items."""
+        if isinstance(items, str):
+            items = [items]
         items_vec = np.stack([self.norm_vectors[self.items[item]] for item in items])
         return self._sim(vector, items_vec)
 
