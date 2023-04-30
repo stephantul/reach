@@ -1,23 +1,14 @@
 """A class for working with vector representations."""
 from __future__ import annotations
+
 import json
 import logging
 from io import TextIOWrapper, open
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    Generator,
-    List,
-    Optional,
-    Tuple,
-    Union,
-    Hashable,
-)
+from typing import Any, Dict, Generator, Hashable, List, Optional, Tuple, Union
 
 import numpy as np
 from tqdm import tqdm
-
 
 Dtype = Union[str, np.dtype]
 File = Union[Path, TextIOWrapper]
@@ -406,7 +397,7 @@ class Reach(object):
         for t in tokens:
             try:
                 out.append(self.items[t])
-            except KeyError:
+            except KeyError as exc:
                 if remove_oov:
                     continue
                 if self.unk_index is None:
@@ -416,7 +407,7 @@ class Reach(object):
                         "glyph. Either set remove_oov to True, "
                         "or set unk_index to the index of the "
                         "item which replaces any OOV items."
-                    )
+                    ) from exc
                 out.append(self.unk_index)
 
         return out

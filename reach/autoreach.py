@@ -1,16 +1,16 @@
 import re
 from string import punctuation
-from typing import Optional, List, Union, Hashable
+from typing import Hashable, List, Optional, Union
 
 try:
     from ahocorasick import Automaton
-except ImportError:
+except ImportError as exc:
     raise ImportError(
         "pyahocorasick is not installed. Please reinstall reach with `pip install"
         " reach[auto]`"
-    )
+    ) from exc
 
-from reach.reach import Reach, Matrix, Tokens
+from reach.reach import Matrix, Reach, Tokens
 
 PUNCT = set(punctuation)
 SPACE = set("\n \t")
