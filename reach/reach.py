@@ -1,21 +1,22 @@
 """A class for working with vector representations."""
 from __future__ import annotations
+
 import json
 import logging
 from io import TextIOWrapper, open
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, Hashable, List, Optional, Tuple, Union
 
 import numpy as np
 from tqdm import tqdm
-
 
 Dtype = Union[str, np.dtype]
 File = Union[Path, TextIOWrapper]
 PathLike = Union[str, Path]
 Matrix = Union[np.ndarray, List[np.ndarray]]
-SimilarityItem = List[Tuple[str, float]]
+SimilarityItem = List[Tuple[Hashable, float]]
 SimilarityResult = List[SimilarityItem]
+Tokens = List[Hashable]
 
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ class Reach(object):
     def __init__(
         self,
         vectors: Matrix,
-        items: List[str],
+        items: List[Hashable],
         name: str = "",
         unk_index: Optional[int] = None,
     ) -> None:
@@ -83,8 +84,8 @@ class Reach(object):
                 "order."
             )
 
-        self._items: Dict[str, int] = {w: idx for idx, w in enumerate(items)}
-        self._indices: Dict[int, str] = {idx: w for w, idx in self.items.items()}
+        self._items: Dict[Hashable, int] = {w: idx for idx, w in enumerate(items)}
+        self._indices: Dict[int, Hashable] = {idx: w for w, idx in self.items.items()}
         self.vectors = np.asarray(vectors)
         self.unk_index = unk_index
         self.name = name
@@ -93,16 +94,16 @@ class Reach(object):
         return len(self.items)
 
     @property
-    def items(self) -> Dict[str, int]:
+    def items(self) -> Dict[Hashable, int]:
         return self._items
 
     @property
-    def indices(self) -> Dict[int, str]:
+    def indices(self) -> Dict[int, Hashable]:
         return self._indices
 
     @property
-    def sorted_items(self) -> List[str]:
-        items: List[str] = [
+    def sorted_items(self) -> List[Hashable]:
+        items: List[Hashable] = [
             item for item, _ in sorted(self.items.items(), key=lambda x: x[1])
         ]
         return items
@@ -225,9 +226,10 @@ class Reach(object):
         else:
             unk_index = None
 
+        # NOTE: we use type: ignore because we pass a list of strings, which is hashable
         return cls(
             vectors,
-            items,
+            items,  # type: ignore
             name=name,
             unk_index=unk_index,
         )
@@ -322,13 +324,13 @@ class Reach(object):
 
         return np.array(vectors, dtype=desired_dtype), words
 
-    def __getitem__(self, item: str) -> np.ndarray:
+    def __getitem__(self, item: Hashable) -> np.ndarray:
         """Get the vector for a single item."""
         return self.vectors[self.items[item]]
 
     def vectorize(
         self,
-        tokens: Union[List[str], str],
+        tokens: Tokens,
         remove_oov: bool = False,
         norm: bool = False,
     ) -> np.ndarray:
@@ -369,7 +371,7 @@ class Reach(object):
         else:
             return self.vectors[index]
 
-    def bow(self, tokens: Union[List[str], str], remove_oov: bool = False) -> List[int]:
+    def bow(self, tokens: Tokens, remove_oov: bool = False) -> List[int]:
         """
         Create a bow representation of a list of tokens.
 
@@ -395,7 +397,7 @@ class Reach(object):
         for t in tokens:
             try:
                 out.append(self.items[t])
-            except KeyError:
+            except KeyError as exc:
                 if remove_oov:
                     continue
                 if self.unk_index is None:
@@ -405,13 +407,13 @@ class Reach(object):
                         "glyph. Either set remove_oov to True, "
                         "or set unk_index to the index of the "
                         "item which replaces any OOV items."
-                    )
+                    ) from exc
                 out.append(self.unk_index)
 
         return out
 
     def transform(
-        self, corpus: List[List[str]], remove_oov: bool = False, norm: bool = False
+        self, corpus: List[List[Hashable]], remove_oov: bool = False, norm: bool = False
     ) -> List[np.ndarray]:
         """
         Transform a corpus by repeated calls to vectorize, defined above.
@@ -439,7 +441,7 @@ class Reach(object):
 
     def most_similar(
         self,
-        items: Union[str, List[str]],
+        items: Tokens,
         num: int = 10,
         batch_size: int = 100,
         show_progressbar: bool = False,
@@ -489,7 +491,7 @@ class Reach(object):
 
     def threshold(
         self,
-        items: Union[str, List[str]],
+        items: Tokens,
         threshold: float = 0.5,
         batch_size: int = 100,
         show_progressbar: bool = False,
@@ -705,9 +707,7 @@ class Reach(object):
         else:
             return vectors / norm[:, None]  # type: ignore
 
-    def vector_similarity(
-        self, vector: np.ndarray, items: Union[str, List[str]]
-    ) -> np.ndarray:
+    def vector_similarity(self, vector: np.ndarray, items: Tokens) -> np.ndarray:
         """Compute the similarity between a vector and a set of items."""
         if isinstance(items, str):
             items = [items]
@@ -720,9 +720,7 @@ class Reach(object):
         sim = cls.normalize(x).dot(y.T)
         return sim
 
-    def similarity(
-        self, items_1: Union[str, List[str]], items_2: Union[str, List[str]]
-    ) -> np.ndarray:
+    def similarity(self, items_1: Tokens, items_2: Tokens) -> np.ndarray:
         """
         Compute the similarity between two collections of items.
 
@@ -751,29 +749,29 @@ class Reach(object):
         )
         return self._sim(items_1_matrix, items_2_matrix)
 
-    def intersect(self, wordlist: List[str]) -> Reach:
+    def intersect(self, itemlist: List[Hashable]) -> Reach:
         """
-        Intersect a reach instance with a wordlist.
+        Intersect a reach instance with a list of items.
 
         Parameters
         ----------
-        wordlist : list of str
-            A list of words to keep. Note that this wordlist need not include
+        itemlist : list of hashables
+            A list of items to keep. Note that this itemlist need not include
             all words in the Reach instance. Any words which are in the
-            wordlist, but not in the reach instance are ignored.
+            itemlist, but not in the reach instance, are ignored.
 
         """
         # Remove duplicates and oov words.
-        wordlist = list(set(self.items) & set(wordlist))
+        itemlist = list(set(self.items) & set(itemlist))
         # Get indices of intersection.
-        indices = sorted([self.items[word] for word in wordlist])
+        indices = sorted([self.items[item] for item in itemlist])
         # Set unk_index to None if it is None or if it is not in indices
         unk_index = self.unk_index if self.unk_index in indices else None
         # Index vectors
         vectors = self.vectors[indices]
         # Index words
-        wordlist = [self.indices[index] for index in indices]
-        return Reach(vectors, wordlist, unk_index=unk_index)
+        itemlist = [self.indices[index] for index in indices]
+        return Reach(vectors, itemlist, unk_index=unk_index)
 
     def union(self, other: Reach, check: bool = True) -> Reach:
         """
@@ -793,7 +791,7 @@ class Reach(object):
                 f"The size of the embedding spaces was not the same: {self.size} and"
                 f" {other.size}"
             )
-        union = sorted(set(self.items) | set(other.items))
+        union = list(set(self.items) | set(other.items))
         if check:
             intersection = set(self.items) & set(other.items)
             for item in intersection:
