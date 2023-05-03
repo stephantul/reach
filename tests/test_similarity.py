@@ -1,18 +1,18 @@
 import logging
 import unittest
 from itertools import combinations
-from typing import Tuple, List
+from typing import Hashable, List, Tuple
 
 import numpy as np
-from reach import Reach, normalize
 
+from reach import Reach, normalize
 
 logger = logging.getLogger(__name__)
 
 
 class TestSimilarity(unittest.TestCase):
-    def data(self) -> Tuple[List[str], np.ndarray]:
-        words = [
+    def data(self) -> Tuple[List[Hashable], np.ndarray]:
+        words: List[Hashable] = [
             "donatello",
             "leonardo",
             "raphael",
@@ -26,7 +26,7 @@ class TestSimilarity(unittest.TestCase):
         return words, vectors
 
     @staticmethod
-    def cosine(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def cosine(x: np.ndarray, y: np.ndarray) -> float:
         norm_x = np.linalg.norm(x)
         norm_y = np.linalg.norm(y)
         if norm_x == 0 or norm_y == 0:
@@ -52,19 +52,18 @@ class TestSimilarity(unittest.TestCase):
             norms.append(normalize(x))
 
         norms = np.stack(norms)
-        X = np.stack(X)
 
-        self.assertTrue(np.allclose(normalize(X), norms))
+        self.assertTrue(np.allclose(normalize(np.stack(X)), norms))
 
     def test_similarity(self) -> None:
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
-        sim = instance.similarity("leonardo", "leonardo")
+        sim = instance.similarity(["leonardo"], ["leonardo"])
         self.assertTrue(np.isclose(sim, 1.0))
 
         for w1, w2 in combinations(instance.items, r=2):
-            sim = instance.similarity(w1, w2)[0][0]
+            sim = instance.similarity([w1], [w2])[0][0]
             self.assertTrue(np.isclose(sim, self.cosine(instance[w1], instance[w2])))
 
     def test_correct_item_gets_deleted(self) -> None:
@@ -84,8 +83,8 @@ class TestSimilarity(unittest.TestCase):
         argsorted_matrix = np.flip(np.argsort(sim_matrix, axis=1), axis=1)[:, 1:]
 
         for idx, w in enumerate(instance.items):
-            similar_words: List[str] = [
-                x[0] for x in instance.most_similar(w, num=10)[0]
+            similar_words: List[Hashable] = [
+                x[0] for x in instance.most_similar([w], num=10)[0]
             ]
             indices = [instance.items[word] for word in similar_words]
             self.assertEqual(indices, argsorted_matrix[idx].tolist())
@@ -106,7 +105,7 @@ class TestSimilarity(unittest.TestCase):
         result = [[x[0] for x in sublist] for sublist in instance.most_similar(words)]
         other_result = []
         for word in words:
-            other_result.append([x[0] for x in instance.most_similar(word)[0]])
+            other_result.append([x[0] for x in instance.most_similar([word])[0]])
 
         self.assertEqual(result, other_result)
 
@@ -117,7 +116,7 @@ class TestSimilarity(unittest.TestCase):
         other_result = []
         for word in words:
             other_result.append(
-                [x[0] for x in instance.threshold(word, threshold=0.0)[0]]
+                [x[0] for x in instance.threshold([word], threshold=0.0)[0]]
             )
 
         self.assertEqual(result, other_result)
@@ -130,22 +129,22 @@ class TestSimilarity(unittest.TestCase):
         sim_matrix[np.diag_indices_from(sim_matrix)] = -100
 
         threshold = 0.0
-        for idx, w in enumerate(instance.items):
-            above_threshold_1: List[str] = [
-                x[0] for x in instance.threshold(w, threshold=threshold)[0]
+        for index, w in enumerate(instance.items):
+            above_threshold_1: List[Hashable] = [
+                x[0] for x in instance.threshold([w], threshold=threshold)[0]
             ]
             indices_1 = [instance.items[word] for word in above_threshold_1]
             sorted_items = sorted(
-                enumerate(sim_matrix[idx]), key=lambda x: x[1], reverse=True
+                enumerate(sim_matrix[index]), key=lambda x: x[1], reverse=True
             )
             self.assertEqual(
                 indices_1, [idx for idx, x in sorted_items if x > threshold]
             )
 
         threshold = 0.9
-        for idx, w in enumerate(instance.items):
-            above_threshold_2: List[str] = [
-                x[0] for x in instance.threshold(w, threshold=threshold)[0]
+        for w in instance.items:
+            above_threshold_2: List[Hashable] = [
+                x[0] for x in instance.threshold([w], threshold=threshold)[0]
             ]
             indices_2 = [instance.items[word] for word in above_threshold_2]
             self.assertEqual(indices_2, [])
@@ -156,7 +155,7 @@ class TestSimilarity(unittest.TestCase):
 
         for word, vector in zip(words, vectors):
             nn1 = instance.nearest_neighbor(vector)[0][1:]
-            nn2 = instance.most_similar(word)[0]
+            nn2 = instance.most_similar([word])[0]
             self.assertEqual(nn1, nn2)
 
         threshold = 0.0
@@ -164,7 +163,7 @@ class TestSimilarity(unittest.TestCase):
             nn1 = instance.nearest_neighbor_threshold(vector, threshold=threshold)[0][
                 1:
             ]
-            nn2 = instance.threshold(word, threshold=threshold)[0]
+            nn2 = instance.threshold([word], threshold=threshold)[0]
             self.assertEqual(nn1, nn2)
 
     def test_neighbor_similarity(self) -> None:
@@ -177,7 +176,7 @@ class TestSimilarity(unittest.TestCase):
         self.assertTrue(np.allclose(result, result2))
 
         result = instance.norm_vectors[0] @ instance.norm_vectors[1].T
-        result2 = instance.vector_similarity(vectors[0], words[1])
+        result2 = instance.vector_similarity(vectors[0], [words[1]])
 
         self.assertEqual(result, result2)
 

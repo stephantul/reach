@@ -1,13 +1,14 @@
 import unittest
-from typing import Tuple, List
+from typing import Hashable, List, Tuple
 
 import numpy as np
+
 from reach import Reach
 
 
 class TestInit(unittest.TestCase):
-    def data(self) -> Tuple[List[str], np.ndarray]:
-        words = [
+    def data(self) -> Tuple[List[Hashable], np.ndarray]:
+        words: List[Hashable] = [
             "donatello",
             "leonardo",
             "raphael",
@@ -15,7 +16,8 @@ class TestInit(unittest.TestCase):
             "splinter",
             "hideout",
         ]
-        vectors = np.stack([np.arange(1, 7)] * 5).T
+        random_generator = np.random.RandomState(seed=44)
+        vectors = random_generator.standard_normal((6, 50))
 
         return words, vectors
 
@@ -24,7 +26,7 @@ class TestInit(unittest.TestCase):
         instance = Reach(vectors, words)
 
         self.assertEqual(len(instance), 6)
-        self.assertEqual(instance.size, 5)
+        self.assertEqual(instance.size, 50)
         self.assertTrue(np.allclose(instance.vectors, vectors))
 
         sorted_words, _ = zip(*sorted(instance.items.items(), key=lambda x: x[1]))

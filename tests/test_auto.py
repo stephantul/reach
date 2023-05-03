@@ -1,5 +1,5 @@
-from typing import Tuple, List
 import unittest
+from typing import Hashable, List, Tuple
 
 import numpy as np
 
@@ -7,8 +7,8 @@ from reach import AutoReach, Reach
 
 
 class TestAuto(unittest.TestCase):
-    def data(self) -> Tuple[List[str], np.ndarray]:
-        words = [
+    def data(self) -> Tuple[List[Hashable], np.ndarray]:
+        words: List[Hashable] = [
             "donatello",
             "leonardo",
             "raphael",
@@ -72,7 +72,7 @@ class TestAuto(unittest.TestCase):
         instance = AutoReach(vectors, words, lowercase="auto")
         self.assertTrue(instance.lowercase)
 
-        words[0] = words[0].title()
+        words[0] = words[0].title()  # type: ignore
         instance = AutoReach(vectors, words, lowercase="auto")
         self.assertFalse(instance.lowercase)
 
