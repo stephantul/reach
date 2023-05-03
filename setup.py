@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """Setup file."""
 from pathlib import Path
-from setuptools import setup, find_packages
 
+from setuptools import find_packages, setup
 
 setup(
     name="reach",
-    version="4.0.2",  # noqa
+    version="4.1.0",
     description="A light-weight package for working with pre-trained word embeddings",
     author="Stéphan Tulkens",
     author_email="stephantul@gmail.com",

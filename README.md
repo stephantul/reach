@@ -71,6 +71,12 @@ vectorized = r.vectorize(sentence)
 # can remove OOV words automatically.
 vectorized = r.vectorize(sentence, remove_oov=True)
 
+# Can mean pool out of the box.
+mean = r.mean_pool(sentence)
+# Automatically take care of incorrect sentences
+# these are set to the vector of the UNK word, or a vector of zeros.
+corpus_mean = r.mean_pool_corpus([sentence, sentence, ["not_a_word"]], remove_oov=True, safeguard=False)
+
 # vectorize corpus.
 transformed = r.transform(corpus)
 
@@ -83,7 +89,7 @@ thresholded = r.threshold("cat", threshold=.0)
 
 ## Loading and saving
 
-`reach` has many options for saving and loading files, including custom separators, custom number of dimensions, loading a custom wordlist, custom number of words, and error recovery. One difference between `gensim` and `reach` is that `reach` loads both GloVe-style .vec files and regular word2vec files. Unlike `gensim`, `reach` does not support loading binary files. 
+`reach` has many options for saving and loading files, including custom separators, custom number of dimensions, loading a custom wordlist, custom number of words, and error recovery. One difference between `gensim` and `reach` is that `reach` loads both GloVe-style .vec files and regular word2vec files. Unlike `gensim`, `reach` does not support loading binary files.
 
 ### benchmark
 
