@@ -555,7 +555,7 @@ class Reach(object):
 
         """
         if isinstance(items, str):
-            raise ValueError("You passed a string, but we require an iterable")
+            items = [items]
         vectors = np.stack([self.norm_vectors[self.items[item]] for item in items])
         result = self._most_similar_batch(
             vectors, batch_size, num + 1, show_progressbar
@@ -602,8 +602,6 @@ class Reach(object):
 
         """
         if isinstance(items, str):
-            if items not in self.items:
-                raise KeyError(f"{items} is not in the set of items.")
             items = [items]
 
         vectors = np.stack([self.norm_vectors[self.items[x]] for x in items])
@@ -793,7 +791,7 @@ class Reach(object):
     def vector_similarity(self, vector: np.ndarray, items: Tokens) -> np.ndarray:
         """Compute the similarity between a vector and a set of items."""
         if isinstance(items, str):
-            raise ValueError("You passed a string, but we expect an iterable")
+            items = [items]
 
         items_vec = np.stack([self.norm_vectors[self.items[item]] for item in items])
         return self._sim(vector, items_vec)
@@ -822,9 +820,9 @@ class Reach(object):
 
         """
         if isinstance(items_1, str):
-            raise ValueError("You passed a string, but we expect an iterable")
+            items_1 = [items_1]
         if isinstance(items_2, str):
-            raise ValueError("You passed a string, but we expect an iterable")
+            items_2 = [items_2]
 
         items_1_matrix = np.stack(
             [self.norm_vectors[self.items[item]] for item in items_1]
