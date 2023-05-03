@@ -1,10 +1,10 @@
-from pathlib import Path
 import unittest
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import numpy as np
 
 from reach import Reach
-from tempfile import NamedTemporaryFile
 
 
 class TestLoad(unittest.TestCase):
@@ -189,7 +189,6 @@ class TestLoad(unittest.TestCase):
                 instance = Reach.load(tempfile.name, num_to_load=-1)
 
     def test_load_from_file_with_header(self) -> None:
-
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -229,7 +228,6 @@ class TestLoad(unittest.TestCase):
                 instance = Reach.load(tempfile.name, num_to_load=-1)
 
     def test_save_load_fast_format(self) -> None:
-
         with NamedTemporaryFile("w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -246,7 +244,6 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(instance.name, instance_2.name)
 
     def test_save_load(self) -> None:
-
         with NamedTemporaryFile("w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)

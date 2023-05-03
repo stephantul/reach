@@ -5,7 +5,17 @@ import json
 import logging
 from io import TextIOWrapper, open
 from pathlib import Path
-from typing import Any, Dict, Generator, Hashable, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Hashable,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 from tqdm import tqdm
@@ -16,7 +26,7 @@ PathLike = Union[str, Path]
 Matrix = Union[np.ndarray, List[np.ndarray]]
 SimilarityItem = List[Tuple[Hashable, float]]
 SimilarityResult = List[SimilarityItem]
-Tokens = List[Hashable]
+Tokens = Iterable[Hashable]
 
 
 logger = logging.getLogger(__name__)
@@ -102,8 +112,8 @@ class Reach(object):
         return self._indices
 
     @property
-    def sorted_items(self) -> List[Hashable]:
-        items: List[Hashable] = [
+    def sorted_items(self) -> Tokens:
+        items: Tokens = [
             item for item, _ in sorted(self.items.items(), key=lambda x: x[1])
         ]
         return items
@@ -209,8 +219,8 @@ class Reach(object):
                 desired_dtype,
                 **kwargs,
             )
-        except ValueError as e:
-            raise e
+        except ValueError as exc:
+            raise exc
         finally:
             if came_from_path:
                 file_handle.close()
@@ -371,6 +381,82 @@ class Reach(object):
         else:
             return self.vectors[index]
 
+    def mean_pool(
+        self, tokens: Tokens, remove_oov: bool = False, safeguard: bool = True
+    ) -> np.ndarray:
+        """
+        Mean pool a list of tokens.
+
+        Parameters
+        ----------
+        tokens : list.
+            The list of items to vectorize and then mean pool.
+        remove_oov : bool.
+            Whether to remove OOV items from the input.
+            If this is False, and an unknown item is encountered, then
+            the <UNK> symbol will be inserted if it is set. If it is not set,
+            then the function will throw a ValueError.
+        safeguard : bool.
+            There are a variety of reasons why we can't vectorize a list
+                of tokens:
+                - The list might be empty after removing OOV
+                - We remove OOV but haven't set <UNK>
+                - The list of tokens is empty
+            If safeguard is False, we simply supply a zero vector instead
+                of erroring out.
+
+        Returns
+        -------
+        vector: np.ndarray
+            a vector of the correct size, which is the mean of all tokens
+            in the sentence.
+
+        """
+        try:
+            return self.vectorize(tokens, remove_oov, False).mean(0)
+        except ValueError as exc:
+            if safeguard:
+                raise exc
+            return np.zeros(self.size)
+
+    def mean_pool_corpus(
+        self, corpus: List[Tokens], remove_oov: bool = False, safeguard: bool = True
+    ) -> np.ndarray:
+        """
+        Mean pool a list of list of tokens.
+
+        Parameters
+        ----------
+        corpus : a list of list of tokens.
+            The list of items to vectorize and then mean pool.
+        remove_oov : bool.
+            Whether to remove OOV items from the input.
+            If this is False, and an unknown item is encountered, then
+            the <UNK> symbol will be inserted if it is set. If it is not set,
+            then the function will throw a ValueError.
+        safeguard : bool.
+            There are a variety of reasons why we can't vectorize a list of tokens:
+                - The list might be empty after removing OOV
+                - We remove OOV but haven't set <UNK>
+                - The list of tokens is empty
+            If safeguard is False, we simply supply a zero vector instead of erroring.
+
+        Returns
+        -------
+        vector: np.ndarray
+            a matrix with number of rows n, where n is the number of input lists, and
+            columns s, which is the number of columns of a single vector.
+
+        """
+        out = []
+        for index, tokens in enumerate(corpus):
+            try:
+                out.append(self.mean_pool(tokens, remove_oov, safeguard))
+            except ValueError as exc:
+                raise ValueError(f"Tokens at {index} errored out") from exc
+
+        return np.stack(out)
+
     def bow(self, tokens: Tokens, remove_oov: bool = False) -> List[int]:
         """
         Create a bow representation of a list of tokens.
@@ -413,7 +499,7 @@ class Reach(object):
         return out
 
     def transform(
-        self, corpus: List[List[Hashable]], remove_oov: bool = False, norm: bool = False
+        self, corpus: List[Tokens], remove_oov: bool = False, norm: bool = False
     ) -> List[np.ndarray]:
         """
         Transform a corpus by repeated calls to vectorize, defined above.
@@ -469,10 +555,7 @@ class Reach(object):
 
         """
         if isinstance(items, str):
-            if items not in self.items:
-                raise KeyError(f"{items} is not in the set of items.")
             items = [items]
-
         vectors = np.stack([self.norm_vectors[self.items[item]] for item in items])
         result = self._most_similar_batch(
             vectors, batch_size, num + 1, show_progressbar
@@ -519,8 +602,6 @@ class Reach(object):
 
         """
         if isinstance(items, str):
-            if items not in self.items:
-                raise KeyError(f"{items} is not in the set of items.")
             items = [items]
 
         vectors = np.stack([self.norm_vectors[self.items[x]] for x in items])
@@ -711,6 +792,7 @@ class Reach(object):
         """Compute the similarity between a vector and a set of items."""
         if isinstance(items, str):
             items = [items]
+
         items_vec = np.stack([self.norm_vectors[self.items[item]] for item in items])
         return self._sim(vector, items_vec)
 
@@ -741,6 +823,7 @@ class Reach(object):
             items_1 = [items_1]
         if isinstance(items_2, str):
             items_2 = [items_2]
+
         items_1_matrix = np.stack(
             [self.norm_vectors[self.items[item]] for item in items_1]
         )
@@ -749,7 +832,7 @@ class Reach(object):
         )
         return self._sim(items_1_matrix, items_2_matrix)
 
-    def intersect(self, itemlist: List[Hashable]) -> Reach:
+    def intersect(self, itemlist: Tokens) -> Reach:
         """
         Intersect a reach instance with a list of items.
 
