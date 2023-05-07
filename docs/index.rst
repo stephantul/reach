@@ -1,4 +1,4 @@
-`Reach <https://github.com/stephantul/reach>`_ documentation
+`reach <https://github.com/stephantul/reach>`_ documentation
 ===================================================================
 
 Installation
