@@ -55,19 +55,9 @@ class Reach(object):
 
     Attributes
     ----------
-    items : dict
-        A mapping from items to ids.
-    indices : dict
-        A mapping from ids to items.
-    vectors : numpy array
-        The array representing the vector space.
     unk_index : int
         The integer index of your unknown glyph. This glyph will be inserted
         into your BoW space whenever an unknown item is encountered.
-    norm_vectors : numpy array
-        A normalized version of the vector space.
-    size : int
-        The dimensionality of the vector space.
     name : string
         The name of the Reach instance.
 
@@ -101,18 +91,22 @@ class Reach(object):
         self.name = name
 
     def __len__(self) -> int:
+        """The number of the items in the vector space."""
         return len(self.items)
 
     @property
     def items(self) -> Dict[Hashable, int]:
+        """A mapping from item ids to their indices."""
         return self._items
 
     @property
     def indices(self) -> Dict[int, Hashable]:
+        """A mapping from integers to item indices."""
         return self._indices
 
     @property
     def sorted_items(self) -> Tokens:
+        """The items, sorted by index."""
         items: Tokens = [
             item for item, _ in sorted(self.items.items(), key=lambda x: x[1])
         ]
@@ -120,10 +114,12 @@ class Reach(object):
 
     @property
     def size(self) -> int:
+        """The dimensionality of the vectors"""
         return self.vectors.shape[1]
 
     @property
     def vectors(self) -> np.ndarray:
+        """The vectors themselves"""
         return self._vectors
 
     @vectors.setter
@@ -143,6 +139,7 @@ class Reach(object):
 
     @property
     def norm_vectors(self) -> np.ndarray:
+        """Vectors, but normalized to unit length."""
         if not hasattr(self, "_norm_vectors"):
             self._norm_vectors = self.normalize(self.vectors)
         return self._norm_vectors
