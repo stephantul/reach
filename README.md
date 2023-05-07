@@ -1,5 +1,8 @@
 # reach
 
+[![PyPI version](https://badge.fury.io/py/reach.svg)](https://badge.fury.io/py/reach)
+[![Downloads](https://pepy.tech/badge/reach)](https://pepy.tech/project/reach)
+
 A light-weight package for working with pre-trained word embeddings.
 Useful for input into neural networks, or for doing compositional semantics.
 
