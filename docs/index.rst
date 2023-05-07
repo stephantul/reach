@@ -15,7 +15,8 @@ these problems from your code.
 
 reach also includes nearest neighbor calculation for arbitrary vectors.
 
-# Installation
+Installation
+------------
 
 If you just want reach:
 
