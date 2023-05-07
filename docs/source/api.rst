@@ -7,6 +7,14 @@ API Reference
 Reach
 -------------------------
 
-.. autoclass:: reach.reach.Reach
+.. autoclass:: reach.Reach
+    :members:
+    :undoc-members:
+
+
+AutoReach
+-------------------------
+
+.. autoclass:: reach.AutoReach
     :members:
     :undoc-members:
