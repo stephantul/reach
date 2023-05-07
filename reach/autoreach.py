@@ -27,6 +27,43 @@ class AutoReach(Reach):
         name: str = "",
         unk_index: Optional[int] = None,
     ) -> None:
+        """
+        A Reach variant that does not require tokenization.
+
+        It uses the aho-corasick algorithm to build an automaton, which is then
+        used to find candidates in strings. These candidates are then selected
+        using a "word rule" (see is_valid_token). This rule is now used to languages
+        that delimit words using spaces. If this is not the case, please subclass
+        this and write rules that fit your language of choice.
+
+        Parameters
+        ----------
+        vectors : numpy array
+            The vector space.
+        items : list
+            A list of items. Length must be equal to the number of vectors, and
+            aligned with the vectors.
+        lowercase : bool or str
+            This determines whether the string should be lowercased or not before
+            searching it. If this is set to 'auto', the items in the vector space
+            are used to determine whether this attribute should be true or false.
+        name : string, optional, default ''
+            A string giving the name of the current reach. Only useful if you
+            have multiple spaces and want to keep track of them.
+        unk_index : int or None, optional, default None
+            The index of the UNK item. If this is None, any attempts at vectorizing
+            OOV items will throw an error.
+
+        Attributes
+        ----------
+        unk_index : int
+            The integer index of your unknown glyph. This glyph will be inserted
+            into your BoW space whenever an unknown item is encountered.
+        name : string
+            The name of the Reach instance.
+
+        """
+
         super().__init__(vectors, items, name, unk_index)
         self.automaton = Automaton()
         if not all(isinstance(item, str) for item in self.items):
@@ -43,6 +80,7 @@ class AutoReach(Reach):
 
     @property
     def lowercase(self) -> bool:
+        """Whether to lowercase a string before searching it."""
         return self._lowercase
 
     def is_valid_token(self, token: str, tokens: str, end_index: int) -> bool:
