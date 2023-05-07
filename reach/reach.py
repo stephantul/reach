@@ -398,9 +398,9 @@ class Reach(object):
             then the function will throw a ValueError.
         safeguard : bool.
             There are a variety of reasons why we can't vectorize a list of tokens:
-            - The list might be empty after removing OOV
-            - We remove OOV but haven't set <UNK>
-            - The list of tokens is empty
+                - The list might be empty after removing OOV
+                - We remove OOV but haven't set <UNK>
+                - The list of tokens is empty
             If safeguard is False, we simply supply a zero vector instead of erroring.
 
         Returns
