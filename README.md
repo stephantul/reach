@@ -1,5 +1,6 @@
 # reach
 
+[![Documentation Status](https://readthedocs.org/projects/reach/badge/?version=latest)](https://reach.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/reach.svg)](https://badge.fury.io/py/reach)
 [![Downloads](https://pepy.tech/badge/reach)](https://pepy.tech/project/reach)
 
