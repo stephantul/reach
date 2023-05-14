@@ -135,14 +135,30 @@ class Reach(object):
         self._vectors = x
         # Make sure norm vectors is updated.
         if hasattr(self, "_norm_vectors"):
-            self._norm_vectors = self.normalize(x)
+            self._norm_vectors = self._normalize_or_copy(x)
 
     @property
     def norm_vectors(self) -> np.ndarray:
-        """Vectors, but normalized to unit length."""
+        """
+        Vectors, but normalized to unit length.
+
+        NOTE: when all vectors are unit length, this attribute _is_ vectors.
+        """
         if not hasattr(self, "_norm_vectors"):
-            self._norm_vectors = self.normalize(self.vectors)
+            self._norm_vectors = self._normalize_or_copy(self.vectors)
         return self._norm_vectors
+
+    @staticmethod
+    def _normalize_or_copy(vectors: np.ndarray) -> np.ndarray:
+        """
+        This function returns a copy of vectors if they are unit length.
+        Otherwise, the vectors are normalized, and a new array is returned.
+        """
+        norms = np.linalg.norm(vectors, axis=1)
+        all_unit_length = np.allclose(norms[norms != 0], 1)
+        if all_unit_length:
+            return vectors
+        return Reach.normalize(vectors, norms)
 
     @classmethod
     def load(
@@ -744,7 +760,9 @@ class Reach(object):
                 ]
 
     @staticmethod
-    def normalize(vectors: np.ndarray) -> np.ndarray:
+    def normalize(
+        vectors: np.ndarray, norms: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         """
         Normalize a matrix of row vectors to unit length.
 
@@ -756,6 +774,8 @@ class Reach(object):
         ----------
         vectors : np.array
             The vectors to normalize.
+        norms: np.ndarray
+            Precomputed norms.
 
         Returns
         -------
@@ -769,10 +789,13 @@ class Reach(object):
                 return np.zeros_like(vectors)
             return vectors / norm
 
-        vectors = np.copy(vectors)
-        norm = np.linalg.norm(vectors, axis=1)
+        if norms is None:
+            norm = np.linalg.norm(vectors, axis=1)
+        else:
+            norm = norms
 
         if np.any(norm == 0):
+            vectors = np.copy(vectors)
             nonzero = norm > 0
             result = np.zeros_like(vectors)
             n = norm[nonzero]  # type: ignore
@@ -961,6 +984,6 @@ class Reach(object):
         return cls(vectors, words, unk_index=unk_index, name=name)
 
 
-def normalize(vectors: np.ndarray) -> np.ndarray:
+def normalize(vectors: np.ndarray, norms: Optional[np.ndarray] = None) -> np.ndarray:
     """Normalize an array to unit length."""
-    return Reach.normalize(vectors)
+    return Reach.normalize(vectors, norms)

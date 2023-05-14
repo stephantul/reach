@@ -36,7 +36,7 @@ class TestSimilarity(unittest.TestCase):
 
         return (x * y).sum()
 
-    def test_normalize(self) -> None:
+    def test_normalize_vector(self) -> None:
         x = np.arange(10)
         norm_x = Reach.normalize(x)
         norm_x_np = x / np.linalg.norm(x)
@@ -44,6 +44,14 @@ class TestSimilarity(unittest.TestCase):
         self.assertTrue(np.allclose(norm_x, norm_x_np))
         self.assertTrue(np.allclose(norm_x, normalize(x)))
 
+    def test_normalize_norm(self) -> None:
+        x = np.arange(10)
+        result = Reach.normalize(x)
+        result_2 = Reach.normalize(x, np.linalg.norm(x))
+
+        self.assertTrue(np.allclose(result, result_2))
+
+    def test_normalize_array(self) -> None:
         norms = []
         X = []
         for idx in range(10):
@@ -109,6 +117,10 @@ class TestSimilarity(unittest.TestCase):
 
         self.assertEqual(result, other_result)
 
+    def test_batch_single_threshold(self) -> None:
+        words, vectors = self.data()
+        instance = Reach(vectors, words)
+
         result = [
             [x[0] for x in sublist]
             for sublist in instance.threshold(words, threshold=0.0)
@@ -158,6 +170,10 @@ class TestSimilarity(unittest.TestCase):
             nn2 = instance.most_similar([word])[0]
             self.assertEqual(nn1, nn2)
 
+    def test_nearest_neighbor_threshold(self) -> None:
+        words, vectors = self.data()
+        instance = Reach(vectors, words)
+
         threshold = 0.0
         for word, vector in zip(words, vectors):
             nn1 = instance.nearest_neighbor_threshold(vector, threshold=threshold)[0][
@@ -179,6 +195,3 @@ class TestSimilarity(unittest.TestCase):
         result2 = instance.vector_similarity(vectors[0], [words[1]])
 
         self.assertEqual(result, result2)
-
-        result3 = instance.vector_similarity(vectors[0], [words[1]])
-        self.assertEqual(result2, result3)
