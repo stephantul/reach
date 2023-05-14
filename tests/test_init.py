@@ -57,3 +57,43 @@ class TestInit(unittest.TestCase):
 
         with self.assertRaises(AttributeError):
             instance.items = {"dog": 1}  # type: ignore
+
+    def test_init_vectors_no_norm(self) -> None:
+        words, vectors = self.data()
+        r = Reach(vectors, words)
+
+        self.assertFalse(hasattr(r, "_norm_vectors"))
+        # Initialize norm vectors
+        r.norm_vectors[0]
+        self.assertTrue(hasattr(r, "norm_vectors"))
+        self.assertFalse(r.vectors is r.norm_vectors)
+
+    def test_init_vectors_norm(self) -> None:
+        words, vectors = self.data()
+        vectors = Reach.normalize(vectors)
+
+        r = Reach(vectors, words)
+        self.assertFalse(hasattr(r, "_norm_vectors"))
+        # Initialize norm vectors
+        r.norm_vectors[0]
+        self.assertTrue(hasattr(r, "norm_vectors"))
+        self.assertTrue(r.vectors is r.norm_vectors)
+
+    def test_vectors_auto_norm_no_copy(self) -> None:
+        _, vectors = self.data()
+        result = Reach._normalize_or_copy(vectors)
+
+        self.assertTrue(np.allclose(Reach.normalize(vectors), result))
+
+    def test_vectors_auto_norm_copy(self) -> None:
+        _, vectors = self.data()
+        vectors = Reach.normalize(vectors)
+        result = Reach._normalize_or_copy(vectors)
+
+        self.assertTrue(vectors is result)
+
+    def test_vectors_auto_norm(self) -> None:
+        _, vectors = self.data()
+        result = Reach._normalize_or_copy(vectors)
+
+        self.assertTrue(np.allclose(Reach.normalize(vectors), result))
