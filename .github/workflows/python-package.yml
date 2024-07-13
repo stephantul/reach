@@ -30,7 +30,8 @@ jobs:
         pip install -r requirements.txt
     - name: Lint with ruff
       run: |
-        ruff reach
+        ruff check reach
+        ruff format reach
     - name: Test with unittest
       run: |
         python -m unittest discover -s tests
