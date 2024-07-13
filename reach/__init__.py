@@ -1,4 +1,5 @@
 """A package for reading and manipulating word embeddings."""
+
 from reach.reach import Reach, normalize
 
 try:

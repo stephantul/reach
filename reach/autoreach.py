@@ -1,6 +1,5 @@
 import re
 from string import punctuation
-from typing import Hashable, List, Optional, Union
 
 try:
     from ahocorasick import Automaton
@@ -59,10 +58,10 @@ class AutoReach(Reach):
     def __init__(
         self,
         vectors: Matrix,
-        items: List[Hashable],
-        lowercase: Union[str, bool] = "auto",
+        items: list[str],
+        lowercase: str | bool = "auto",
         name: str = "",
-        unk_index: Optional[int] = None,
+        unk_index: int | None = None,
     ) -> None:
         """Initialize a Reach instance with an array and list of strings."""
         super().__init__(vectors, items, name, unk_index)
@@ -96,7 +95,7 @@ class AutoReach(Reach):
 
         return True
 
-    def bow(self, tokens: Tokens, remove_oov: bool = True) -> List[int]:
+    def bow(self, tokens: Tokens, remove_oov: bool = True) -> list[int]:
         """
         Create a bow representation from a string.
 

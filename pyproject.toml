@@ -3,5 +3,11 @@ requires = ["setuptools >= 40.6.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
-select = ["E", "F", "B", "I001", "I002"]
-target-version = "py38"
+target-version = "py311"
+
+[[tool.mypy.overrides]]
+module = [
+    "tqdm.*",
+    "ahocorasick.*",
+]
+ignore_missing_imports = true
