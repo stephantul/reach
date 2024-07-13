@@ -1,6 +1,5 @@
 import logging
 import unittest
-from typing import Hashable, List, Tuple
 
 import numpy as np
 
@@ -10,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 class TestVectorize(unittest.TestCase):
-    def data(self) -> Tuple[List[Hashable], np.ndarray]:
-        words: List[Hashable] = [
+    def data(self) -> tuple[list[str], np.ndarray]:
+        words: list[str] = [
             "donatello",
             "leonardo",
             "raphael",
@@ -45,9 +44,13 @@ class TestVectorize(unittest.TestCase):
         words, vectors = self.data()
         words.append("<UNK>")
         vectors = np.concatenate([vectors, np.zeros((1, vectors.shape[1]))])
-        reach = Reach(vectors, words, unk_index=len(words) - 1)
+        reach = Reach(vectors, words)
+        reach.unk_token = "<UNK>"
 
-        self.assertEqual(reach.indices[reach.unk_index], "<UNK>")  # type: ignore
+        self.assertIsNotNone(reach._unk_index)
+
+        assert reach._unk_index is not None
+        self.assertEqual(reach.indices[reach._unk_index], "<UNK>")
         self.assertTrue(np.allclose(vectors[-1], np.zeros(reach.size)))
 
     def test_bow_no_unk(self) -> None:
@@ -70,10 +73,11 @@ class TestVectorize(unittest.TestCase):
         words, vectors = self.data()
         words.append("<UNK>")
         vectors = np.concatenate([vectors, np.zeros((1, vectors.shape[1]))])
-        reach = Reach(vectors, words, unk_index=len(words) - 1)
+        reach = Reach(vectors, words)
+        reach.unk_token = "<UNK>"
 
         bow = reach.bow(["donatello", "leonardo", "rgieurghegh"])
-        self.assertEqual(bow, [0, 1, reach.unk_index])
+        self.assertEqual(bow, [0, 1, reach._unk_index])
 
         bow = reach.bow(["donatello", "leonardo", "rgieurghegh"], remove_oov=True)
         self.assertEqual(bow, [0, 1])
@@ -130,7 +134,8 @@ class TestVectorize(unittest.TestCase):
         words, vectors = self.data()
         words.append("<UNK>")
         vectors = np.concatenate([vectors, np.zeros((1, vectors.shape[1]))])
-        reach = Reach(vectors, words, unk_index=len(words) - 1)
+        reach = Reach(vectors, words)
+        reach.unk_token = "<UNK>"
 
         vec = reach.mean_pool(["donatello", "dog"])
         self.assertTrue(np.allclose(vec, reach["donatello"] / 2))

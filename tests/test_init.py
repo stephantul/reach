@@ -1,5 +1,4 @@
 import unittest
-from typing import Hashable, List, Tuple
 
 import numpy as np
 
@@ -7,8 +6,8 @@ from reach import Reach
 
 
 class TestInit(unittest.TestCase):
-    def data(self) -> Tuple[List[Hashable], np.ndarray]:
-        words: List[Hashable] = [
+    def data(self) -> tuple[list[str], np.ndarray]:
+        words: list[str] = [
             "donatello",
             "leonardo",
             "raphael",
@@ -48,8 +47,7 @@ class TestInit(unittest.TestCase):
         instance = Reach(vectors, words, name="sensei")
         self.assertEqual(instance.name, "sensei")
 
-        instance = Reach(vectors, words, unk_index=1)
-        self.assertEqual(instance.unk_index, 1)
+        instance = Reach(vectors, words)
         self.assertEqual(list(instance.sorted_items), words)
 
         with self.assertRaises(AttributeError):

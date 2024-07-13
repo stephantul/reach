@@ -41,15 +41,9 @@ class Reach:
     name : string, optional, default ''
         A string giving the name of the current reach. Only useful if you
         have multiple spaces and want to keep track of them.
-    unk_index : int or None, optional, default None
-        The index of the UNK item. If this is None, any attempts at vectorizing
-        OOV items will throw an error.
 
     Attributes
     ----------
-    unk_index : int
-        The integer index of your unknown glyph. This glyph will be inserted
-        into your BoW space whenever an unknown item is encountered.
     name : string
         The name of the Reach instance.
 
@@ -60,7 +54,6 @@ class Reach:
         vectors: Matrix,
         items: list[str],
         name: str = "",
-        unk_index: int | None = None,
     ) -> None:
         """Initialize a Reach instance with an array and list of items."""
         if len(items) != len(vectors):
@@ -79,8 +72,27 @@ class Reach:
         self._items: dict[str, int] = {w: idx for idx, w in enumerate(items)}
         self._indices: dict[int, str] = {idx: w for w, idx in self.items.items()}
         self.vectors = np.asarray(vectors)
-        self.unk_index = unk_index
         self.name = name
+        self._unk_token: str | None = None
+        self._unk_index: int | None = None
+
+    @property
+    def unk_token(self) -> str | None:
+        """The unknown token."""
+        return self._unk_token
+
+    @unk_token.setter
+    def unk_token(self, token: str | None) -> None:
+        if token is None:
+            if self.unk_token is not None:
+                logger.info(f"Setting unk token from {self.unk_token} to None.")
+            self._unk_token = None
+            self._unk_index = None
+        else:
+            if token not in self.items:
+                self.insert([token])
+            self._unk_token = token
+            self._unk_index = self.items[token]
 
     def __len__(self) -> int:
         """The number of the items in the vector space."""
@@ -154,6 +166,36 @@ class Reach:
             return vectors
         return Reach.normalize(vectors, norms)
 
+    def insert(self, tokens: list[str], vectors: npt.NDArray | None = None) -> None:
+        """
+        Insert new items into the vector space.
+
+        Parameters
+        ----------
+        tokens : list
+            A list of items to insert into the vector space.
+        vectors : numpy array, optional, default None
+            The vectors to insert into the vector space. If this is None,
+            the vectors will be set to zero.
+
+        """
+        if vectors is None:
+            vectors = np.zeros((len(tokens), self.size), dtype=self.vectors.dtype)
+        else:
+            vectors = np.asarray(vectors, dtype=self.vectors.dtype)
+
+        if len(tokens) != len(vectors):
+            raise ValueError(
+                f"Your tokens and vectors are not the same length: {len(tokens)} != {len(vectors)}"
+            )
+
+        for token in tokens:
+            if token in self.items:
+                raise ValueError(f"Token {token} is already in the vector space.")
+            self.items[token] = len(self.items)
+            self.indices[len(self.items) - 1] = token
+        self.vectors = np.concatenate([self.vectors, vectors], 0)
+
     @classmethod
     def load(
         cls,
@@ -161,7 +203,7 @@ class Reach:
         wordlist: tuple[str, ...] | None = None,
         num_to_load: int | None = None,
         truncate_embeddings: int | None = None,
-        unk_word: str | None = None,
+        unk_token: str | None = None,
         sep: str = " ",
         recover_from_errors: bool = False,
         desired_dtype: Dtype = "float32",
@@ -190,8 +232,8 @@ class Reach:
         truncate_embeddings : int, optional, default None
             If this value is not None, the vectors in the vector space will
             be truncated to the number of dimensions indicated by this value.
-        unk_word : object
-            The object to treat as UNK in your vector space. If this is not
+        unk_token : str
+            The string to treat as UNK in your vector space. If this is not
             in your items dictionary after loading, we add it with a zero
             vector.
         recover_from_errors : bool
@@ -232,24 +274,20 @@ class Reach:
             if came_from_path:
                 file_handle.close()
 
-        if unk_word is not None:
-            if unk_word not in items:
-                unk_vec = np.zeros((1, vectors.shape[1]), dtype=desired_dtype)
-                vectors = np.concatenate([unk_vec, vectors], 0)
-                items = [unk_word] + items
-                unk_index = 0
-            else:
-                unk_index = items.index(unk_word)
-        else:
-            unk_index = None
-
         # NOTE: we use type: ignore because we pass a list of strings, which is hashable
-        return cls(
+        instance = cls(
             vectors,
-            items,  # type: ignore
+            items,
             name=name,
-            unk_index=unk_index,
         )
+
+        if unk_token is not None:
+            if unk_token not in items:
+                logger.info(f"Adding unk token {unk_token} to the vocabulary.")
+                instance.insert([unk_token])
+            instance.unk_token = unk_token
+
+        return instance
 
     @staticmethod
     def _load(
@@ -491,7 +529,7 @@ class Reach:
             except KeyError as exc:
                 if remove_oov:
                     continue
-                if self.unk_index is None:
+                if self._unk_index is None:
                     raise ValueError(
                         "You supplied OOV items but didn't "
                         "provide the index of the replacement "
@@ -499,7 +537,7 @@ class Reach:
                         "or set unk_index to the index of the "
                         "item which replaces any OOV items."
                     ) from exc
-                out.append(self.unk_index)
+                out.append(self._unk_index)
 
         return out
 
@@ -865,13 +903,14 @@ class Reach:
         itemlist = list(set(self.items) & set(itemlist))
         # Get indices of intersection.
         indices = sorted([self.items[item] for item in itemlist])
-        # Set unk_index to None if it is None or if it is not in indices
-        unk_index = self.unk_index if self.unk_index in indices else None
         # Index vectors
         vectors = self.vectors[indices]
         # Index words
         itemlist = [self.indices[index] for index in indices]
-        return Reach(vectors, itemlist, unk_index=unk_index, name=self.name)
+        instance = Reach(vectors, itemlist, name=self.name)
+        instance.unk_token = self.unk_token
+
+        return instance
 
     def union(self, other: Reach, check: bool = True) -> Reach:
         """
@@ -946,7 +985,7 @@ class Reach:
 
         """
         items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
-        items_dict = {"items": items, "unk_index": self.unk_index, "name": self.name}
+        items_dict = {"items": items, "unk_token": self.unk_token, "name": self.name}
 
         with open(f"{filename}_items.json", "w") as file_handle:
             json.dump(items_dict, file_handle)
@@ -975,12 +1014,15 @@ class Reach:
         """
         with open(f"{filename}_items.json") as file_handle:
             items = json.load(file_handle)
-        words, unk_index, name = items["items"], items["unk_index"], items["name"]
+        words, unk_token, name = items["items"], items["unk_token"], items["name"]
 
         with open(f"{filename}_vectors.npy", "rb") as file_handle:
             vectors: npt.NDArray = np.load(file_handle)
         vectors = vectors.astype(desired_dtype)
-        return cls(vectors, words, unk_index=unk_index, name=name)
+        instance = cls(vectors, words, name=name)
+        instance.unk_token = unk_token
+
+        return instance
 
 
 def normalize(vectors: npt.NDArray, norms: npt.NDArray | None = None) -> npt.NDArray:
