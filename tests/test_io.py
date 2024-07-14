@@ -1,6 +1,6 @@
 import unittest
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import numpy as np
 
@@ -228,14 +228,20 @@ class TestLoad(unittest.TestCase):
                 instance = Reach.load(tempfile.name, num_to_load=-1)
 
     def test_save_load_fast_format(self) -> None:
-        with NamedTemporaryFile("w+") as tempfile:
+        with TemporaryDirectory() as temp_folder:
             lines = self.lines()
-            tempfile.write(lines)
-            tempfile.seek(0)
 
-            instance = Reach.load(tempfile.name)
-            instance.save_fast_format(tempfile.name)
-            instance_2 = Reach.load_fast_format(tempfile.name)
+            temp_folder_path = Path(temp_folder)
+
+            temp_file_name = temp_folder_path / "test.vec"
+            with open(temp_file_name, "w") as tempfile:
+                tempfile.write(lines)
+                tempfile.seek(0)
+
+            instance = Reach.load(temp_file_name)
+            fast_format_file = temp_folder_path / "temp.reach"
+            instance.save_fast_format(fast_format_file)
+            instance_2 = Reach.load_fast_format(fast_format_file)
 
             self.assertEqual(instance.size, instance_2.size)
             self.assertEqual(len(instance), len(instance_2))
