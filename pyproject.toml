@@ -13,7 +13,6 @@ target-version = "py311"
 [[tool.mypy.overrides]]
 module = [
     "tqdm.*",
-    "ahocorasick.*",
     "setuptools.*",
 ]
 ignore_missing_imports = true

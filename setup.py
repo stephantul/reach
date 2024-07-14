@@ -15,7 +15,6 @@ setup(
     license="MIT",
     packages=find_packages(include=["reach"]),
     install_requires=["numpy", "tqdm"],
-    extras_require={"auto": ["pyahocorasick"]},
     project_urls={
         "Source Code": "https://github.com/stephantul/reach",
         "Issue Tracker": "https://github.com/stephantul/reach/issues",

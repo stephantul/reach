@@ -113,62 +113,6 @@ On my machine (a 2022 M1 macbook pro), we get the following times for [`COW BIG`
 
 `reach` has a special fast format, which is useful if you want to reload your word vectors often. The fast format can be created using the `save_fast_format` function, and loaded using the `load_fast_format` function. This is about equivalent to saving word vectors in `gensim`'s own format in terms of loading speed.
 
-# autoreach
-
-Reach also has a way of automatically inferring words from strings without using a pre-defined tokenizer, i.e., without splitting the string into words. This is useful because there might be mismatches between the tokenizer you happen to have on hand, and the word vectors you use. For example, if your vector space contains an embedding for the word `"it's"`, and your tokenizer splits this string into two tokens: `["it", "'s"]`, the embedding for `"it's"` will never be found.
-
-autoreach solves this problem by only finding words from your pre-defined vocabulary in a string, this removing the need for any tokenization. We use the [aho-corasick algorithm](https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm), which allows us to find substrings in linear time. The downside of using aho-corasick is that it also finds substrings of regular words. For example, the word `the` will be found as a substring of `these`. To circumvent this, we perform a regex-based clean-up step.
-
-**Warning! The clean-up step involves checking for surrounding spaces and punctuation marks. Hence, if the language for which you use Reach does not actually use spaces and/or punctuation marks to designate word boundaries, the entire process might not work.**
-
-### Example
-
-```python
-import numpy as np
-
-from reach import AutoReach
-
-words = ["dog", "walked", "home"]
-vectors = np.random.randn(3, 32)
-
-r = AutoReach(vectors, words)
-
-sentence = "The dog, walked, home"
-bow = r.bow(sentence)
-
-found_words = [r.indices[index] for index in bow]
-```
-
-### benchmark
-
-Because we no longer need to tokenize, `AutoReach` can be many times faster. In this benchmark, we compare to just splitting, and `nltk`'s `word_tokenize` function.
-
-We will use the entirety of Mary Shelley's Frankenstein, which you can find [here](https://www.gutenberg.org/cache/epub/42324/pg42324.txt), and the glove.6b.50d vectors, which you can find [here](https://nlp.stanford.edu/data/glove.6B.zip).
-
-```python
-from pathlib import Path
-
-from nltk import word_tokenize
-
-from reach import AutoReach, Reach
-
-
-txt = Path("pg42324.txt").read_text().lower()
-normal_reach = Reach.load("glove.6B.100d.txt")
-auto_reach = AutoReach.load("glove.6B.100d.txt")
-
-# Ipython magic commands
-%timeit normal_reach.vectorize(word_tokenize(txt), remove_oov=True)
-# 345 ms ± 3.42 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
-%timeit normal_reach.vectorize(txt.split(), remove_oov=True)
-# 25.4 ms ± 132 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
-%timeit auto_reach.vectorize(txt)
-# 69.9 ms ± 237 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
-
-```
-
-As you can see, the tokenizer introduces significant overhead compared to just splitting, while using the aho-corasick algorithm to split is still reasonably fast.
-
 # License
 
 MIT

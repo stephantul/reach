@@ -1006,8 +1006,9 @@ class Reach:
         metadata = {
             "unk_token": self.unk_token,
             "name": self.name,
-            **(additional_metadata or {}),
         }
+        if additional_metadata is not None:
+            metadata.update(additional_metadata)
 
         items = self.sorted_items
         items_dict = {
