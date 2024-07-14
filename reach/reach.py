@@ -12,6 +12,9 @@ import numpy as np
 from numpy import typing as npt
 from tqdm import tqdm
 
+from reach.legacy.load import load_old_fast_format_data
+
+
 Dtype: TypeAlias = str | np.dtype
 File = Path | TextIOWrapper
 PathLike = str | Path
@@ -1041,20 +1044,34 @@ class Reach:
 
         """
         filename_path = Path(filename)
-        with open(filename) as file_handle:
-            data: dict[str, Any] = json.load(file_handle)
-        items: list[str] = data["items"]
 
-        metadata: dict[str, Any] = data["metadata"]
-        unk_token = metadata.pop("unk_token")
-        name = metadata.pop("name")
-        numpy_path = filename_path.parent / Path(data["vectors_path"])
+        try:
+            with open(filename) as file_handle:
+                data: dict[str, Any] = json.load(file_handle)
+            items: list[str] = data["items"]
 
-        if not numpy_path.exists():
-            raise ValueError(f"Could not find the vectors file at {numpy_path}")
+            metadata: dict[str, Any] = data["metadata"]
+            unk_token = metadata.pop("unk_token")
+            name = metadata.pop("name")
+            numpy_path = filename_path.parent / Path(data["vectors_path"])
 
-        with open(numpy_path, "rb") as file_handle:
-            vectors: npt.NDArray = np.load(file_handle)
+            if not numpy_path.exists():
+                raise ValueError(f"Could not find the vectors file at {numpy_path}")
+
+            with open(numpy_path, "rb") as file_handle:
+                vectors: npt.NDArray = np.load(file_handle)
+        except FileNotFoundError as exc:
+            logger.warning("Attempting to load from old format.")
+            try:
+                vectors, items, unk_token, name = load_old_fast_format_data(
+                    filename_path
+                )
+                metadata = {}
+            except FileNotFoundError:
+                logger.warning("Loading from old format failed")
+                # NOTE: reraise old exception.
+                raise exc
+
         vectors = vectors.astype(desired_dtype)
         instance = cls(vectors, items, name=name, metadata=metadata)
         instance.unk_token = unk_token
