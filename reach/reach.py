@@ -968,7 +968,12 @@ class Reach:
                 vec_string = " ".join([str(x) for x in vec])
                 f.write(f"{w} {vec_string}\n")
 
-    def save_fast_format(self, filename: str) -> None:
+    def save_fast_format(
+        self,
+        path: PathLike,
+        overwrite: bool = False,
+        additional_metadata: dict[str, str] | None = None,
+    ) -> None:
         """
         Save a reach instance in a fast format.
 
@@ -978,18 +983,42 @@ class Reach:
         Parameters
         ----------
         filename : str
-            The prefix to add to the saved filename. Note that this is not the
-            real filename under which these items are stored.
-            The words and unk_index are stored under "{filename}_words.json",
-            and the numpy matrix is saved under "{filename}_vectors.npy".
+            The path to which to save the JSON file. The vectors are saved separately.
+            The JSON contains a path to the numpy file.
+        overwrite : bool, optional, default False
+            Whether to overwrite the JSON and numpy files if they already exist.
 
         """
-        items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
-        items_dict = {"items": items, "unk_token": self.unk_token, "name": self.name}
+        path_object = Path(path)
+        if path_object.exists() and not overwrite:
+            raise ValueError(
+                f"The file at {path} already exists. Set overwrite to True, or choose another path."
+            )
+        if path_object.is_dir():
+            raise ValueError(f"Path {path} is a directory. Please provide a filename.")
+        numpy_path = path_object.with_suffix(".npy")
 
-        with open(f"{filename}_items.json", "w") as file_handle:
+        if numpy_path.exists() and not overwrite:
+            raise ValueError(
+                f"The file at {numpy_path} already exists. Set overwrite to True, or choose another path."
+            )
+
+        metadata = {
+            "unk_token": self.unk_token,
+            "name": self.name,
+            **(additional_metadata or {}),
+        }
+
+        items = self.sorted_items
+        items_dict = {
+            "items": items,
+            "metadata": metadata,
+            "vectors_path": numpy_path.name,
+        }
+
+        with open(path_object, "w") as file_handle:
             json.dump(items_dict, file_handle)
-        with open(f"{filename}_vectors.npy", "wb") as file_handle:
+        with open(numpy_path, "wb") as file_handle:
             np.save(file_handle, self.vectors)
 
     @classmethod
@@ -1006,20 +1035,27 @@ class Reach:
         Parameters
         ----------
         filename : str
-            The filename prefix from which to load. Note that this is not a
-            real filepath as such, but a shared prefix for both files.
-            In order for this to work, both {filename}_words.json and
-            {filename}_vectors.npy should be present.
+            The filename from which to load. In order for this to work, both the base file and
+            file.npy should be present.
 
         """
-        with open(f"{filename}_items.json") as file_handle:
-            items = json.load(file_handle)
-        words, unk_token, name = items["items"], items["unk_token"], items["name"]
+        filename_path = Path(filename)
+        with open(filename) as file_handle:
+            data: dict[str, Any] = json.load(file_handle)
+        items: list[str] = data["items"]
 
-        with open(f"{filename}_vectors.npy", "rb") as file_handle:
+        metadata: dict[str, Any] = data.get("metadata", {})
+        unk_token = metadata.get("unk_token")
+        name = metadata.get("name", "")
+        numpy_path = filename_path.parent / Path(data["vectors_path"])
+
+        if not numpy_path.exists():
+            raise ValueError(f"Could not find the vectors file at {numpy_path}")
+
+        with open(numpy_path, "rb") as file_handle:
             vectors: npt.NDArray = np.load(file_handle)
         vectors = vectors.astype(desired_dtype)
-        instance = cls(vectors, words, name=name)
+        instance = cls(vectors, items, name=name)
         instance.unk_token = unk_token
 
         return instance
