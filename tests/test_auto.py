@@ -1,5 +1,4 @@
 import unittest
-from typing import Hashable, List, Tuple
 
 import numpy as np
 
@@ -7,8 +6,8 @@ from reach import AutoReach, Reach
 
 
 class TestAuto(unittest.TestCase):
-    def data(self) -> Tuple[List[Hashable], np.ndarray]:
-        words: List[Hashable] = [
+    def data(self) -> tuple[list[str], np.ndarray]:
+        words: list[str] = [
             "donatello",
             "leonardo",
             "raphael",

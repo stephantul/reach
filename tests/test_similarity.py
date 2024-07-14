@@ -1,9 +1,10 @@
 import logging
 import unittest
 from itertools import combinations
-from typing import Hashable, List, Tuple
+from typing import cast
 
 import numpy as np
+import numpy.typing as npt
 
 from reach import Reach, normalize
 
@@ -11,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class TestSimilarity(unittest.TestCase):
-    def data(self) -> Tuple[List[Hashable], np.ndarray]:
-        words: List[Hashable] = [
+    def data(self) -> tuple[list[str], np.ndarray]:
+        words: list[str] = [
             "donatello",
             "leonardo",
             "raphael",
@@ -47,7 +48,7 @@ class TestSimilarity(unittest.TestCase):
     def test_normalize_norm(self) -> None:
         x = np.arange(10)
         result = Reach.normalize(x)
-        result_2 = Reach.normalize(x, np.linalg.norm(x))
+        result_2 = Reach.normalize(x, cast(npt.NDArray, np.linalg.norm(x)))
 
         self.assertTrue(np.allclose(result, result_2))
 
@@ -91,7 +92,7 @@ class TestSimilarity(unittest.TestCase):
         argsorted_matrix = np.flip(np.argsort(sim_matrix, axis=1), axis=1)[:, 1:]
 
         for idx, w in enumerate(instance.items):
-            similar_words: List[Hashable] = [
+            similar_words: list[str] = [
                 x[0] for x in instance.most_similar([w], num=10)[0]
             ]
             indices = [instance.items[word] for word in similar_words]
@@ -142,7 +143,7 @@ class TestSimilarity(unittest.TestCase):
 
         threshold = 0.0
         for index, w in enumerate(instance.items):
-            above_threshold_1: List[Hashable] = [
+            above_threshold_1: list[str] = [
                 x[0] for x in instance.threshold([w], threshold=threshold)[0]
             ]
             indices_1 = [instance.items[word] for word in above_threshold_1]
@@ -155,7 +156,7 @@ class TestSimilarity(unittest.TestCase):
 
         threshold = 0.9
         for w in instance.items:
-            above_threshold_2: List[Hashable] = [
+            above_threshold_2: list[str] = [
                 x[0] for x in instance.threshold([w], threshold=threshold)[0]
             ]
             indices_2 = [instance.items[word] for word in above_threshold_2]

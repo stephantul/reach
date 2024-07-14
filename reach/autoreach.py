@@ -61,10 +61,9 @@ class AutoReach(Reach):
         items: list[str],
         lowercase: str | bool = "auto",
         name: str = "",
-        unk_index: int | None = None,
     ) -> None:
         """Initialize a Reach instance with an array and list of strings."""
-        super().__init__(vectors, items, name, unk_index)
+        super().__init__(vectors, items, name)
         self.automaton = Automaton()
         if not all(isinstance(item, str) for item in self.items):
             raise ValueError("All your items should be strings.")

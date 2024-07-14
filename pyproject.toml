@@ -1,13 +1,19 @@
+[project]
+name = "reach"
+readme = "README.md"
+
 [build-system]
 requires = ["setuptools >= 40.6.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
+exclude = [".venv/"]
 target-version = "py311"
 
 [[tool.mypy.overrides]]
 module = [
     "tqdm.*",
     "ahocorasick.*",
+    "setuptools.*",
 ]
 ignore_missing_imports = true

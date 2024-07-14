@@ -61,20 +61,20 @@ class TestLoad(unittest.TestCase):
             lines = self.lines()
             tempfile.write(lines)
             tempfile.seek(0)
-            instance = Reach.load(tempfile.name, unk_word=None)
-            self.assertEqual(instance.unk_index, None)
+            instance = Reach.load(tempfile.name, unk_token=None)
+            self.assertEqual(instance._unk_index, None)
 
             desired_dtype = "float32"
             instance = Reach.load(
-                tempfile.name, unk_word="[UNK]", desired_dtype=desired_dtype
+                tempfile.name, unk_token="[UNK]", desired_dtype=desired_dtype
             )
-            self.assertEqual(instance.unk_index, 0)
-            self.assertEqual(instance.items["[UNK]"], instance.unk_index)
+            self.assertEqual(instance._unk_index, 6)
+            self.assertEqual(instance.items["[UNK]"], instance._unk_index)
             self.assertEqual(instance.vectors.dtype, desired_dtype)
 
-            instance = Reach.load(tempfile.name, unk_word="splinter")
-            self.assertEqual(instance.unk_index, 2)
-            self.assertEqual(instance.items["splinter"], instance.unk_index)
+            instance = Reach.load(tempfile.name, unk_token="splinter")
+            self.assertEqual(instance._unk_index, 2)
+            self.assertEqual(instance.items["splinter"], instance._unk_index)
 
     def test_limit(self) -> None:
         with NamedTemporaryFile(mode="w+") as tempfile:
@@ -240,7 +240,7 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(instance.size, instance_2.size)
             self.assertEqual(len(instance), len(instance_2))
             self.assertTrue(np.allclose(instance.vectors, instance_2.vectors))
-            self.assertEqual(instance.unk_index, instance_2.unk_index)
+            self.assertEqual(instance._unk_index, instance_2._unk_index)
             self.assertEqual(instance.name, instance_2.name)
 
     def test_save_load(self) -> None:
@@ -257,5 +257,5 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(instance.size, instance_2.size)
             self.assertEqual(len(instance), len(instance_2))
             self.assertTrue(np.allclose(instance.vectors, instance_2.vectors))
-            self.assertEqual(instance.unk_index, instance_2.unk_index)
+            self.assertEqual(instance._unk_index, instance_2._unk_index)
             self.assertEqual(instance.name, instance_2.name)
