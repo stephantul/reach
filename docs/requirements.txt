@@ -1,4 +1,0 @@
-urllib3==1.26.19
-numpy
-pyahocorasick
-tqdm
