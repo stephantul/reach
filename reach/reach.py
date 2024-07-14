@@ -54,6 +54,7 @@ class Reach:
         vectors: Matrix,
         items: list[str],
         name: str = "",
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Initialize a Reach instance with an array and list of items."""
         if len(items) != len(vectors):
@@ -75,6 +76,7 @@ class Reach:
         self.name = name
         self._unk_token: str | None = None
         self._unk_index: int | None = None
+        self.metadata = metadata or {}
 
     @property
     def unk_token(self) -> str | None:
@@ -972,7 +974,6 @@ class Reach:
         self,
         path: PathLike,
         overwrite: bool = False,
-        additional_metadata: dict[str, str] | None = None,
     ) -> None:
         """
         Save a reach instance in a fast format.
@@ -1007,8 +1008,7 @@ class Reach:
             "unk_token": self.unk_token,
             "name": self.name,
         }
-        if additional_metadata is not None:
-            metadata.update(additional_metadata)
+        metadata.update(self.metadata)
 
         items = self.sorted_items
         items_dict = {
@@ -1045,9 +1045,9 @@ class Reach:
             data: dict[str, Any] = json.load(file_handle)
         items: list[str] = data["items"]
 
-        metadata: dict[str, Any] = data.get("metadata", {})
-        unk_token = metadata.get("unk_token")
-        name = metadata.get("name", "")
+        metadata: dict[str, Any] = data["metadata"]
+        unk_token = metadata.pop("unk_token")
+        name = metadata.pop("name")
         numpy_path = filename_path.parent / Path(data["vectors_path"])
 
         if not numpy_path.exists():
@@ -1056,7 +1056,7 @@ class Reach:
         with open(numpy_path, "rb") as file_handle:
             vectors: npt.NDArray = np.load(file_handle)
         vectors = vectors.astype(desired_dtype)
-        instance = cls(vectors, items, name=name)
+        instance = cls(vectors, items, name=name, metadata=metadata)
         instance.unk_token = unk_token
 
         return instance

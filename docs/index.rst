@@ -1,3 +1,8 @@
+.. reach documentation master file, created by
+   sphinx-quickstart on Sun Jul 14 20:50:46 2024.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
 `reach <https://github.com/stephantul/reach>`_ documentation
 ===================================================================
 
@@ -24,15 +29,6 @@ If you just want reach:
 ::
 
     $ pip install reach
-
-
-
-If you also want AutoReach:
-
-
-::
-
-    $ pip install reach[auto]
 
 
 Contents
