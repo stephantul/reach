@@ -1,3 +1,4 @@
+import json
 import unittest
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
@@ -248,6 +249,50 @@ class TestLoad(unittest.TestCase):
             self.assertTrue(np.allclose(instance.vectors, instance_2.vectors))
             self.assertEqual(instance._unk_index, instance_2._unk_index)
             self.assertEqual(instance.name, instance_2.name)
+
+    def test_save_load_fast_format_old(self) -> None:
+        with TemporaryDirectory() as temp_folder:
+            lines = self.lines()
+
+            temp_folder_path = Path(temp_folder)
+
+            temp_file_name = temp_folder_path / "test.vec"
+            with open(temp_file_name, "w") as tempfile:
+                tempfile.write(lines)
+                tempfile.seek(0)
+
+            instance = Reach.load(temp_file_name)
+            fast_format_file = temp_folder_path / "temp"
+
+            items_dict = {
+                "items": instance.sorted_items,
+                "unk_index": instance._unk_index,
+                "name": instance.name,
+            }
+
+            json.dump(items_dict, open(f"{fast_format_file}_items.json", "w"))
+            np.save(f"{fast_format_file}_vectors.npy", instance.vectors)
+
+            instance_2 = Reach.load_fast_format(fast_format_file)
+
+            self.assertEqual(instance.size, instance_2.size)
+            self.assertEqual(len(instance), len(instance_2))
+            self.assertEqual(instance.items, instance_2.items)
+            self.assertTrue(np.allclose(instance.vectors, instance_2.vectors))
+            self.assertEqual(instance._unk_index, instance_2._unk_index)
+            self.assertEqual(instance.name, instance_2.name)
+
+            fast_format_file_2 = temp_folder_path / "temp.reach"
+
+            instance.save_fast_format(fast_format_file_2)
+            instance_3 = Reach.load_fast_format(fast_format_file_2)
+
+            self.assertEqual(instance.size, instance_3.size)
+            self.assertEqual(len(instance), len(instance_3))
+            self.assertEqual(instance.items, instance_3.items)
+            self.assertTrue(np.allclose(instance.vectors, instance_3.vectors))
+            self.assertEqual(instance._unk_index, instance_3._unk_index)
+            self.assertEqual(instance.name, instance_3.name)
 
     def test_save_load(self) -> None:
         with NamedTemporaryFile("w+") as tempfile:
