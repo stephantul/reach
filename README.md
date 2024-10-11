@@ -1,106 +1,112 @@
 # reach
 
-[![Documentation Status](https://readthedocs.org/projects/reach/badge/?version=latest)](https://reach.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/reach.svg)](https://badge.fury.io/py/reach)
 [![Downloads](https://pepy.tech/badge/reach)](https://pepy.tech/project/reach)
 
-A light-weight package for working with pre-trained word embeddings.
-Useful for input into neural networks, or for doing compositional semantics.
+# Table of contents
 
-`reach` can read in word vectors in `word2vec` or `glove` format without
-any preprocessing.
+1. [Quickstart](#quickstart)
+2. [What do I use it for?](#what-do-i-use-it-for)
+3. [Example](#)
 
-The assumption behind `reach` is a no-hassle approach to featurization. The
-vectorization and bow approaches know how to deal with OOV words, removing
-these problems from your code.
+Reach is the lightest-weight vector store. Just put in some vectors, calculate query vectors, and off you go.
 
-`reach` also includes nearest neighbor calculation for arbitrary vectors.
+## Quickstart
+
+```bash
+pip install reach
+```
+
+Assume you've got some vectors and a model. We'll assume you have a nice [model2vec](https://github.com/MinishLab/model2vec) model.
+
+```python
+from model2vec import StaticModel
+from reach import Reach
+
+model = StaticModel.from_pretrained("minishlab/m2v_output_base")
+texts = ["dog walked home", "cat walked home", "robot was in his lab"]
+vectors = model.encode(texts)
+
+r = Reach(vectors, texts)
+r.most_similar(texts[0])
+
+new_text = "robot went to his house"
+similarities = r.nearest_neighbor(model.encode(new_text))
+
+print(similarities)
+
+# Store the vector space
+r.save("tempo.json")
+# Load it again
+new_reach = Reach.load("tempo.json")
+
+```
+
+And that's it!
+
+## What do I use it for?
+
+Reach is an extremely simple but extremely fast vector store. No magic here, it just uses numpy really effectively to obtain impressive speeds. Reach will be fast enough for your RAG projects until 1M vectors, after which you may have to switch to something heavier.
+
+Reach is designed to load really quickly from disk, see below, making it ideal for just-in-time projects, such as querying texts on the fly. No need to keep a heavy vector database running, just load your reach, do the computation, and then throw it away.
+
+# Examples
+
+Here's some examples and benchmarks.
+
+## Retrieval
+
+For your RAG system, you need fast retrieval. We got it!
+
+```python
+import numpy as np
+from reach import Reach
+
+dummy_words = list(map(str, range(100_000)))
+dummy_vector = np.random.randn(100_000, 768)
+r = Reach(dummy_vector, dummy_words)
+
+# Query with a single vector
+x = np.random.randn(768)
+%timeit r.nearest_neighbor(x)
+# 6.8 ms ± 286 μs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+
+# Query reach with 10 vectors
+x = np.random.randn(10, 768)
+%timeit r.nearest_neighbor(x)
+# 27.5 ms ± 187 μs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+# 2.7 ms per vector
+
+# 100 vectors.
+x = np.random.randn(100, 768)
+%timeit r.nearest_neighbor(x)
+# 143 ms ± 943 μs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+# 1.4 ms per vector
+```
+
+# Saving and loading
+
+No need to keep a vector database in memory, or on some server. Just load and save your thing whenever you need it.
+
+```python
+import numpy as np
+from reach import Reach
+
+dummy_words = list(map(str, range(100_000)))
+dummy_vector = np.random.randn(100_000, 768)
+r = Reach(dummy_vector, dummy_words)
+
+# Loading from disk
+r.save("temp.json")
+%timeit Reach.load("temp.json")
+# 79.9 ms ± 1.22 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+```
 
 ## Installation
-
-If you just want `reach`:
 
 ```
 pip install reach
 ```
-
-## Example
-
-```python
-import numpy as np
-
-from reach import Reach
-
-# Load from a .vec or .txt file
-# unk_word specifies which token is the "unknown" token.
-# If this is token is not in your vector space, it is added as an extra word
-# and a corresponding zero vector.
-# If it is in your embedding space, it is used.
-r = Reach.load("path/to/embeddings", unk_word="UNK")
-
-# Alternatively, if you have a matrix, you can directly
-# input it.
-
-# Stand-in for word embeddings
-mtr = np.random.randn(8, 300)
-words = ["UNK", "cat", "dog", "best", "creature", "alive", "span", "prose"]
-r = Reach(mtr, words, unk_index=0)
-
-# Get vectors through indexing.
-# Throws a KeyError if a word is not present.
-vector = r['cat']
-
-# Compare two words.
-similarity = r.similarity('cat', 'dog')
-
-# Find most similar.
-similarities = r.most_similar('cat', 2)
-
-sentence = 'a dog is the best creature alive'.split()
-corpus = [sentence, sentence, sentence]
-
-# bow representation consistent with word vectors,
-# for input into neural network.
-bow = r.bow(sentence)
-
-# vectorized representation.
-vectorized = r.vectorize(sentence)
-
-# can remove OOV words automatically.
-vectorized = r.vectorize(sentence, remove_oov=True)
-
-# Can mean pool out of the box.
-mean = r.mean_pool(sentence)
-# Automatically take care of incorrect sentences
-# these are set to the vector of the UNK word, or a vector of zeros.
-corpus_mean = r.mean_pool_corpus([sentence, sentence, ["not_a_word"]], remove_oov=True, safeguard=False)
-
-# vectorize corpus.
-transformed = r.transform(corpus)
-
-# Get nearest words to arbitrary vector
-nearest = r.nearest_neighbor(np.random.randn(1, 300))
-
-# Get every word within a certain threshold
-thresholded = r.threshold("cat", threshold=.0)
-```
-
-## Loading and saving
-
-`reach` has many options for saving and loading files, including custom separators, custom number of dimensions, loading a custom wordlist, custom number of words, and error recovery. One difference between `gensim` and `reach` is that `reach` loads both GloVe-style .vec files and regular word2vec files. Unlike `gensim`, `reach` does not support loading binary files.
-
-### benchmark
-
-On my machine (a 2022 M1 macbook pro), we get the following times for [`COW BIG`](https://github.com/clips/dutchembeddings), a file containing about 3 million rows and 320 dimensions.
-
-| System | Time (7 loops)    |
-|--------|-------------------|
-| Gensim | 3min 57s ± 344 ms |
-| reach  | 2min 14s ± 4.09 s |
-
-## Fast format
-
-`reach` has a special fast format, which is useful if you want to reload your word vectors often. The fast format can be created using the `save_fast_format` function, and loaded using the `load_fast_format` function. This is about equivalent to saving word vectors in `gensim`'s own format in terms of loading speed.
 
 # License
 

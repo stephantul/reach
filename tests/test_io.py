@@ -25,11 +25,11 @@ class TestLoad(unittest.TestCase):
             lines = self.lines()
             tempfile.write(lines)
             tempfile.seek(0)
-            instance = Reach.load(tempfile.name, truncate_embeddings=2)
+            instance = Reach.load_word2vec_format(tempfile.name, truncate_embeddings=2)
             self.assertEqual(instance.size, 2)
             self.assertEqual(len(instance), 6)
 
-            instance = Reach.load(tempfile.name, truncate_embeddings=100)
+            instance = Reach.load_word2vec_format(tempfile.name, truncate_embeddings=100)
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance), 6)
 
@@ -39,11 +39,11 @@ class TestLoad(unittest.TestCase):
             lines = self.lines()
             tempfile.write(lines)
             tempfile.seek(0)
-            instance = Reach.load(tempfile.name, wordlist=("shredder", "krang"))
+            instance = Reach.load_word2vec_format(tempfile.name, wordlist=("shredder", "krang"))
             self.assertEqual(len(instance), 2)
 
             with self.assertRaises(ValueError):
-                instance = Reach.load(tempfile.name, wordlist=("doggo",))
+                instance = Reach.load_word2vec_format(tempfile.name, wordlist=("doggo",))
 
     def test_duplicate(self) -> None:
         """Test duplicates in a wordlist."""
@@ -55,8 +55,8 @@ class TestLoad(unittest.TestCase):
             tempfile.seek(0)
 
             with self.assertRaises(ValueError):
-                Reach.load(tempfile.name, recover_from_errors=False)
-            instance = Reach.load(tempfile.name, recover_from_errors=True)
+                Reach.load_word2vec_format(tempfile.name, recover_from_errors=False)
+            instance = Reach.load_word2vec_format(tempfile.name, recover_from_errors=True)
             self.assertEqual(len(instance), 5)
 
     def test_unk(self) -> None:
@@ -65,16 +65,16 @@ class TestLoad(unittest.TestCase):
             lines = self.lines()
             tempfile.write(lines)
             tempfile.seek(0)
-            instance = Reach.load(tempfile.name, unk_token=None)
+            instance = Reach.load_word2vec_format(tempfile.name, unk_token=None)
             self.assertEqual(instance._unk_index, None)
 
             desired_dtype = "float32"
-            instance = Reach.load(tempfile.name, unk_token="[UNK]", desired_dtype=desired_dtype)
+            instance = Reach.load_word2vec_format(tempfile.name, unk_token="[UNK]", desired_dtype=desired_dtype)
             self.assertEqual(instance._unk_index, 6)
             self.assertEqual(instance.items["[UNK]"], instance._unk_index)
             self.assertEqual(instance.vectors.dtype, desired_dtype)
 
-            instance = Reach.load(tempfile.name, unk_token="splinter")
+            instance = Reach.load_word2vec_format(tempfile.name, unk_token="splinter")
             self.assertEqual(instance._unk_index, 2)
             self.assertEqual(instance.items["splinter"], instance._unk_index)
 
@@ -84,13 +84,13 @@ class TestLoad(unittest.TestCase):
             lines = self.lines()
             tempfile.write(lines)
             tempfile.seek(0)
-            instance = Reach.load(tempfile.name, num_to_load=2)
+            instance = Reach.load_word2vec_format(tempfile.name, num_to_load=2)
             self.assertEqual(len(instance), 2)
 
             with self.assertRaises(ValueError):
-                instance = Reach.load(tempfile.name, num_to_load=-1)
+                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=-1)
 
-            instance = Reach.load(tempfile.name, num_to_load=10000)
+            instance = Reach.load_word2vec_format(tempfile.name, num_to_load=10000)
             self.assertEqual(len(instance), 6)
 
     def test_sep(self) -> None:
@@ -99,13 +99,13 @@ class TestLoad(unittest.TestCase):
             lines = self.lines(sep=",")
             tempfile.write(lines)
             tempfile.seek(0)
-            Reach.load(tempfile.name, sep=",")
+            Reach.load_word2vec_format(tempfile.name, sep=",")
 
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines(False, sep=",")
             tempfile.write(lines)
             tempfile.seek(0)
-            Reach.load(tempfile.name, sep=",")
+            Reach.load_word2vec_format(tempfile.name, sep=",")
 
     def test_corrupted_file(self) -> None:
         """Test whether a corrupted file loads."""
@@ -117,9 +117,9 @@ class TestLoad(unittest.TestCase):
 
             tempfile.seek(0)
             with self.assertRaises(ValueError):
-                instance = Reach.load(tempfile.name)
+                instance = Reach.load_word2vec_format(tempfile.name)
 
-            instance = Reach.load(tempfile.name, recover_from_errors=True)
+            instance = Reach.load_word2vec_format(tempfile.name, recover_from_errors=True)
             self.assertEqual(instance.size, 4)
             self.assertEqual(len(instance.items), 1)
             self.assertEqual(instance.vectors.shape, (1, 4))
@@ -132,9 +132,9 @@ class TestLoad(unittest.TestCase):
 
             tempfile.seek(0)
             with self.assertRaises(ValueError):
-                instance = Reach.load(tempfile.name)
+                instance = Reach.load_word2vec_format(tempfile.name)
 
-            instance = Reach.load(tempfile.name, recover_from_errors=True)
+            instance = Reach.load_word2vec_format(tempfile.name, recover_from_errors=True)
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance.items), 5)
             self.assertEqual(instance.vectors.shape, (5, 5))
@@ -147,9 +147,9 @@ class TestLoad(unittest.TestCase):
 
             tempfile.seek(0)
             with self.assertRaises(ValueError):
-                instance = Reach.load(tempfile.name)
+                instance = Reach.load_word2vec_format(tempfile.name)
 
-            instance = Reach.load(tempfile.name, recover_from_errors=True)
+            instance = Reach.load_word2vec_format(tempfile.name, recover_from_errors=True)
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance.items), 5)
             self.assertEqual(instance.vectors.shape, (5, 5))
@@ -161,7 +161,7 @@ class TestLoad(unittest.TestCase):
             tempfile.write(lines)
             tempfile.seek(0)
 
-            instance = Reach.load(tempfile.name)
+            instance = Reach.load_word2vec_format(tempfile.name)
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance.items), 6)
             self.assertEqual(instance.vectors.shape, (6, 5))
@@ -171,28 +171,28 @@ class TestLoad(unittest.TestCase):
             for item, index in instance.items.items():
                 self.assertEqual(instance.indices[index], item)
 
-            instance = Reach.load(tempfile.name, num_to_load=3)
+            instance = Reach.load_word2vec_format(tempfile.name, num_to_load=3)
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance.items), 3)
             self.assertEqual(instance.vectors.shape, (3, 5))
 
-            instance = Reach.load(tempfile.name)
+            instance = Reach.load_word2vec_format(tempfile.name)
             with open(tempfile.name) as f:
-                instance_from_file = Reach.load(f)
+                instance_from_file = Reach.load_word2vec_format(f)
             self.assertEqual(instance.size, instance_from_file.size)
             self.assertTrue(np.all(instance.vectors == instance_from_file.vectors))
             self.assertEqual(instance.name, instance_from_file.name)
 
-            instance_from_path = Reach.load(Path(tempfile.name))
+            instance_from_path = Reach.load_word2vec_format(Path(tempfile.name))
             self.assertEqual(instance.size, instance_from_path.size)
             self.assertTrue(np.all(instance.vectors == instance_from_path.vectors))
             self.assertEqual(instance.name, instance_from_path.name)
 
             with self.assertRaises(ValueError):
-                instance = Reach.load(tempfile.name, num_to_load=0)
+                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=0)
 
             with self.assertRaises(ValueError):
-                instance = Reach.load(tempfile.name, num_to_load=-1)
+                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=-1)
 
     def test_load_from_file_with_header(self) -> None:
         """Test whether we can load without headers."""
@@ -201,7 +201,7 @@ class TestLoad(unittest.TestCase):
             tempfile.write(lines)
             tempfile.seek(0)
 
-            instance = Reach.load(tempfile.name)
+            instance = Reach.load_word2vec_format(tempfile.name)
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance.items), 6)
             self.assertEqual(instance.vectors.shape, (6, 5))
@@ -211,28 +211,28 @@ class TestLoad(unittest.TestCase):
             for item, index in instance.items.items():
                 self.assertEqual(instance.indices[index], item)
 
-            instance = Reach.load(tempfile.name, num_to_load=3)
+            instance = Reach.load_word2vec_format(tempfile.name, num_to_load=3)
             self.assertEqual(instance.size, 5)
             self.assertEqual(len(instance.items), 3)
             self.assertEqual(instance.vectors.shape, (3, 5))
 
-            instance = Reach.load(tempfile.name)
+            instance = Reach.load_word2vec_format(tempfile.name)
             with open(tempfile.name) as f:
-                instance_from_file = Reach.load(f)
+                instance_from_file = Reach.load_word2vec_format(f)
             self.assertEqual(instance.size, instance_from_file.size)
             self.assertTrue(np.all(instance.vectors == instance_from_file.vectors))
             self.assertEqual(instance.name, instance_from_file.name)
 
-            instance_from_path = Reach.load(Path(tempfile.name))
+            instance_from_path = Reach.load_word2vec_format(Path(tempfile.name))
             self.assertEqual(instance.size, instance_from_path.size)
             self.assertTrue(np.all(instance.vectors == instance_from_path.vectors))
             self.assertEqual(instance.name, instance_from_path.name)
 
             with self.assertRaises(ValueError):
-                instance = Reach.load(tempfile.name, num_to_load=0)
+                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=0)
 
             with self.assertRaises(ValueError):
-                instance = Reach.load(tempfile.name, num_to_load=-1)
+                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=-1)
 
     def test_save_load_fast_format(self) -> None:
         """Test the saving and loading of the fast format."""
@@ -246,10 +246,10 @@ class TestLoad(unittest.TestCase):
                 tempfile.write(lines)
                 tempfile.seek(0)
 
-            instance = Reach.load(temp_file_name)
+            instance = Reach.load_word2vec_format(temp_file_name)
             fast_format_file = temp_folder_path / "temp.reach"
-            instance.save_fast_format(fast_format_file)
-            instance_2 = Reach.load_fast_format(fast_format_file)
+            instance.save(fast_format_file)
+            instance_2 = Reach.load(fast_format_file)
 
             self.assertEqual(instance.size, instance_2.size)
             self.assertEqual(len(instance), len(instance_2))
@@ -264,10 +264,10 @@ class TestLoad(unittest.TestCase):
             tempfile.write(lines)
             tempfile.seek(0)
 
-            instance = Reach.load(tempfile.name)
+            instance = Reach.load_word2vec_format(tempfile.name)
             # We know for sure that this writeable.
-            instance.save(tempfile.name)
-            instance_2 = Reach.load(tempfile.name)
+            instance.save_word2vec_format(tempfile.name)
+            instance_2 = Reach.load_word2vec_format(tempfile.name)
 
             self.assertEqual(instance.size, instance_2.size)
             self.assertEqual(len(instance), len(instance_2))
