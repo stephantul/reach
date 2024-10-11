@@ -1,5 +1,5 @@
 [project]
-name = "Reach"
+name = "reach"
 description = "Load your vector embeddings"
 readme = "README.md"
 version = "5.0.0"
@@ -67,7 +67,7 @@ warn_unused_configs = true
 ignore_missing_imports = true
 
 [tool.setuptools]
-packages = ["Reach"]
+packages = ["reach"]
 
 [tool.setuptools_scm]
 # can be empty if no extra settings are needed, presence enables setuptools_scm
