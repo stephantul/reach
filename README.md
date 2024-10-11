@@ -1,4 +1,14 @@
-# reach
+
+<div align="center">
+    <picture>
+      <img width="25%" alt="Reach logo" src="assets/reach_logo.png">
+    </picture>
+  </a>
+</div>
+
+<div align="center">
+  <h2>A small vector database for your RAG system</h2>
+</div>
 
 [![PyPI version](https://badge.fury.io/py/reach.svg)](https://badge.fury.io/py/reach)
 [![Downloads](https://pepy.tech/badge/reach)](https://pepy.tech/project/reach)
