@@ -3,4 +3,4 @@
 from reach.reach import Reach, normalize
 
 __all__ = ["Reach", "normalize"]
-__version__ = "4.1.1"
+__version__ = "5.0.0"

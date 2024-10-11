@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class TestSimilarity(unittest.TestCase):
     def data(self) -> tuple[list[str], np.ndarray]:
+        """Dummy data."""
         words: list[str] = [
             "donatello",
             "leonardo",
@@ -28,6 +29,7 @@ class TestSimilarity(unittest.TestCase):
 
     @staticmethod
     def cosine(x: np.ndarray, y: np.ndarray) -> float:
+        """Compute the cosine."""
         norm_x = np.linalg.norm(x)
         norm_y = np.linalg.norm(y)
         if norm_x == 0 or norm_y == 0:
@@ -38,6 +40,7 @@ class TestSimilarity(unittest.TestCase):
         return (x * y).sum()
 
     def test_normalize_vector(self) -> None:
+        """Test normalizing a vector."""
         x = np.arange(10)
         norm_x = Reach.normalize(x)
         norm_x_np = x / np.linalg.norm(x)
@@ -46,6 +49,7 @@ class TestSimilarity(unittest.TestCase):
         self.assertTrue(np.allclose(norm_x, normalize(x)))
 
     def test_normalize_norm(self) -> None:
+        """Test normalizing and comparing with norm."""
         x = np.arange(10)
         result = Reach.normalize(x)
         result_2 = Reach.normalize(x, cast(npt.NDArray, np.linalg.norm(x)))
@@ -53,6 +57,7 @@ class TestSimilarity(unittest.TestCase):
         self.assertTrue(np.allclose(result, result_2))
 
     def test_normalize_array(self) -> None:
+        """Test normalizing an array."""
         norms = []
         X = []
         for idx in range(10):
@@ -65,6 +70,7 @@ class TestSimilarity(unittest.TestCase):
         self.assertTrue(np.allclose(normalize(np.stack(X)), norms))
 
     def test_similarity(self) -> None:
+        """Test computing the similarity."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
@@ -76,6 +82,7 @@ class TestSimilarity(unittest.TestCase):
             self.assertTrue(np.isclose(sim, self.cosine(instance[w1], instance[w2])))
 
     def test_correct_item_gets_deleted(self) -> None:
+        """Test whether the correct items get deleted."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
@@ -85,6 +92,7 @@ class TestSimilarity(unittest.TestCase):
             self.assertEqual(set(words) - {word}, result_itemset)
 
     def test_ranking(self) -> None:
+        """Test whether the ranking is correct."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
@@ -92,13 +100,12 @@ class TestSimilarity(unittest.TestCase):
         argsorted_matrix = np.flip(np.argsort(sim_matrix, axis=1), axis=1)[:, 1:]
 
         for idx, w in enumerate(instance.items):
-            similar_words: list[str] = [
-                x[0] for x in instance.most_similar([w], num=10)[0]
-            ]
+            similar_words: list[str] = [x[0] for x in instance.most_similar([w], num=10)[0]]
             indices = [instance.items[word] for word in similar_words]
             self.assertEqual(indices, argsorted_matrix[idx].tolist())
 
     def test_item_similarity(self) -> None:
+        """Test the item similarity."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
@@ -107,6 +114,7 @@ class TestSimilarity(unittest.TestCase):
         self.assertTrue(np.allclose(sims, sims_2))
 
     def test_batch_single(self) -> None:
+        """Test batching for a single item."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
@@ -119,22 +127,19 @@ class TestSimilarity(unittest.TestCase):
         self.assertEqual(result, other_result)
 
     def test_batch_single_threshold(self) -> None:
+        """Test thresholding for a single item."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
-        result = [
-            [x[0] for x in sublist]
-            for sublist in instance.threshold(words, threshold=0.0)
-        ]
+        result = [[x[0] for x in sublist] for sublist in instance.threshold(words, threshold=0.0)]
         other_result = []
         for word in words:
-            other_result.append(
-                [x[0] for x in instance.threshold([word], threshold=0.0)[0]]
-            )
+            other_result.append([x[0] for x in instance.threshold([word], threshold=0.0)[0]])
 
         self.assertEqual(result, other_result)
 
     def test_threshold(self) -> None:
+        """Test the thresholding in general."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
@@ -143,26 +148,19 @@ class TestSimilarity(unittest.TestCase):
 
         threshold = 0.0
         for index, w in enumerate(instance.items):
-            above_threshold_1: list[str] = [
-                x[0] for x in instance.threshold([w], threshold=threshold)[0]
-            ]
+            above_threshold_1: list[str] = [x[0] for x in instance.threshold([w], threshold=threshold)[0]]
             indices_1 = [instance.items[word] for word in above_threshold_1]
-            sorted_items = sorted(
-                enumerate(sim_matrix[index]), key=lambda x: x[1], reverse=True
-            )
-            self.assertEqual(
-                indices_1, [idx for idx, x in sorted_items if x > threshold]
-            )
+            sorted_items = sorted(enumerate(sim_matrix[index]), key=lambda x: x[1], reverse=True)
+            self.assertEqual(indices_1, [idx for idx, x in sorted_items if x > threshold])
 
         threshold = 0.9
         for w in instance.items:
-            above_threshold_2: list[str] = [
-                x[0] for x in instance.threshold([w], threshold=threshold)[0]
-            ]
+            above_threshold_2: list[str] = [x[0] for x in instance.threshold([w], threshold=threshold)[0]]
             indices_2 = [instance.items[word] for word in above_threshold_2]
             self.assertEqual(indices_2, [])
 
     def test_nearest_neighbor(self) -> None:
+        """Test the nearest neighbor calculation."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
@@ -172,18 +170,18 @@ class TestSimilarity(unittest.TestCase):
             self.assertEqual(nn1, nn2)
 
     def test_nearest_neighbor_threshold(self) -> None:
+        """Test the nearest neighbor function."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
         threshold = 0.0
         for word, vector in zip(words, vectors):
-            nn1 = instance.nearest_neighbor_threshold(vector, threshold=threshold)[0][
-                1:
-            ]
+            nn1 = instance.nearest_neighbor_threshold(vector, threshold=threshold)[0][1:]
             nn2 = instance.threshold([word], threshold=threshold)[0]
             self.assertEqual(nn1, nn2)
 
     def test_neighbor_similarity(self) -> None:
+        """Test neighborhood similarity."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
