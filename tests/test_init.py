@@ -7,6 +7,7 @@ from reach import Reach
 
 class TestInit(unittest.TestCase):
     def data(self) -> tuple[list[str], np.ndarray]:
+        """Data fixture."""
         words: list[str] = [
             "donatello",
             "leonardo",
@@ -21,6 +22,7 @@ class TestInit(unittest.TestCase):
         return words, vectors
 
     def test_init(self) -> None:
+        """Test initialization."""
         words, vectors = self.data()
         instance = Reach(vectors, words)
 
@@ -57,6 +59,7 @@ class TestInit(unittest.TestCase):
             instance.items = {"dog": 1}  # type: ignore
 
     def test_init_vectors_no_norm(self) -> None:
+        """Test that the norm vectors don't exist."""
         words, vectors = self.data()
         r = Reach(vectors, words)
 
@@ -67,6 +70,7 @@ class TestInit(unittest.TestCase):
         self.assertFalse(r.vectors is r.norm_vectors)
 
     def test_init_vectors_norm(self) -> None:
+        """Test that the norm vectors start existing."""
         words, vectors = self.data()
         vectors = Reach.normalize(vectors)
 
@@ -78,20 +82,16 @@ class TestInit(unittest.TestCase):
         self.assertTrue(r.vectors is r.norm_vectors)
 
     def test_vectors_auto_norm_no_copy(self) -> None:
+        """Test that vectors are normed."""
         _, vectors = self.data()
         result = Reach._normalize_or_copy(vectors)
 
         self.assertTrue(np.allclose(Reach.normalize(vectors), result))
 
     def test_vectors_auto_norm_copy(self) -> None:
+        """Test auto norm with copy."""
         _, vectors = self.data()
         vectors = Reach.normalize(vectors)
         result = Reach._normalize_or_copy(vectors)
 
         self.assertTrue(vectors is result)
-
-    def test_vectors_auto_norm(self) -> None:
-        _, vectors = self.data()
-        result = Reach._normalize_or_copy(vectors)
-
-        self.assertTrue(np.allclose(Reach.normalize(vectors), result))

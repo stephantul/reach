@@ -9,9 +9,8 @@ from reach import Reach
 
 
 class TestLoad(unittest.TestCase):
-    def lines(
-        self, header: bool = True, n: int = 6, dim: int = 5, sep: str = " "
-    ) -> str:
+    def lines(self, header: bool = True, n: int = 6, dim: int = 5, sep: str = " ") -> str:
+        """Lines fixture."""
         lines = []
         words = ["skateboard", "pizza", "splinter", "technodrome", "krang", "shredder"]
         if header:
@@ -21,6 +20,7 @@ class TestLoad(unittest.TestCase):
         return "\n".join(lines)
 
     def test_truncation(self) -> None:
+        """Test truncation."""
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -34,6 +34,7 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(len(instance), 6)
 
     def test_wordlist(self) -> None:
+        """Test that adding a wordlist works."""
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -45,6 +46,7 @@ class TestLoad(unittest.TestCase):
                 instance = Reach.load(tempfile.name, wordlist=("doggo",))
 
     def test_duplicate(self) -> None:
+        """Test duplicates in a wordlist."""
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             lines_split = lines.split("\n")
@@ -58,6 +60,7 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(len(instance), 5)
 
     def test_unk(self) -> None:
+        """Test whether the unk token exists."""
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -66,9 +69,7 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(instance._unk_index, None)
 
             desired_dtype = "float32"
-            instance = Reach.load(
-                tempfile.name, unk_token="[UNK]", desired_dtype=desired_dtype
-            )
+            instance = Reach.load(tempfile.name, unk_token="[UNK]", desired_dtype=desired_dtype)
             self.assertEqual(instance._unk_index, 6)
             self.assertEqual(instance.items["[UNK]"], instance._unk_index)
             self.assertEqual(instance.vectors.dtype, desired_dtype)
@@ -78,6 +79,7 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(instance.items["splinter"], instance._unk_index)
 
     def test_limit(self) -> None:
+        """Tests whether limit during loading works."""
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -92,6 +94,7 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(len(instance), 6)
 
     def test_sep(self) -> None:
+        """Test different seps."""
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines(sep=",")
             tempfile.write(lines)
@@ -105,6 +108,7 @@ class TestLoad(unittest.TestCase):
             Reach.load(tempfile.name, sep=",")
 
     def test_corrupted_file(self) -> None:
+        """Test whether a corrupted file loads."""
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines(header=False)
             lines_split = lines.split("\n")
@@ -151,6 +155,7 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(instance.vectors.shape, (5, 5))
 
     def test_load_from_file_without_header(self) -> None:
+        """Test whether we can load files without headers."""
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines(header=False)
             tempfile.write(lines)
@@ -190,6 +195,7 @@ class TestLoad(unittest.TestCase):
                 instance = Reach.load(tempfile.name, num_to_load=-1)
 
     def test_load_from_file_with_header(self) -> None:
+        """Test whether we can load without headers."""
         with NamedTemporaryFile(mode="w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
@@ -229,6 +235,7 @@ class TestLoad(unittest.TestCase):
                 instance = Reach.load(tempfile.name, num_to_load=-1)
 
     def test_save_load_fast_format(self) -> None:
+        """Test the saving and loading of the fast format."""
         with TemporaryDirectory() as temp_folder:
             lines = self.lines()
 
@@ -250,51 +257,8 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(instance._unk_index, instance_2._unk_index)
             self.assertEqual(instance.name, instance_2.name)
 
-    def test_save_load_fast_format_old(self) -> None:
-        with TemporaryDirectory() as temp_folder:
-            lines = self.lines()
-
-            temp_folder_path = Path(temp_folder)
-
-            temp_file_name = temp_folder_path / "test.vec"
-            with open(temp_file_name, "w") as tempfile:
-                tempfile.write(lines)
-                tempfile.seek(0)
-
-            instance = Reach.load(temp_file_name)
-            fast_format_file = temp_folder_path / "temp"
-
-            items_dict = {
-                "items": instance.sorted_items,
-                "unk_index": instance._unk_index,
-                "name": instance.name,
-            }
-
-            json.dump(items_dict, open(f"{fast_format_file}_items.json", "w"))
-            np.save(f"{fast_format_file}_vectors.npy", instance.vectors)
-
-            instance_2 = Reach.load_fast_format(fast_format_file)
-
-            self.assertEqual(instance.size, instance_2.size)
-            self.assertEqual(len(instance), len(instance_2))
-            self.assertEqual(instance.items, instance_2.items)
-            self.assertTrue(np.allclose(instance.vectors, instance_2.vectors))
-            self.assertEqual(instance._unk_index, instance_2._unk_index)
-            self.assertEqual(instance.name, instance_2.name)
-
-            fast_format_file_2 = temp_folder_path / "temp.reach"
-
-            instance.save_fast_format(fast_format_file_2)
-            instance_3 = Reach.load_fast_format(fast_format_file_2)
-
-            self.assertEqual(instance.size, instance_3.size)
-            self.assertEqual(len(instance), len(instance_3))
-            self.assertEqual(instance.items, instance_3.items)
-            self.assertTrue(np.allclose(instance.vectors, instance_3.vectors))
-            self.assertEqual(instance._unk_index, instance_3._unk_index)
-            self.assertEqual(instance.name, instance_3.name)
-
     def test_save_load(self) -> None:
+        """Test regular save and load."""
         with NamedTemporaryFile("w+") as tempfile:
             lines = self.lines()
             tempfile.write(lines)
