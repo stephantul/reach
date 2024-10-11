@@ -182,7 +182,7 @@ class Reach:
         self.vectors = np.concatenate([self.vectors, vectors], 0)
 
     @classmethod
-    def load(
+    def load_word2vec_format(
         cls,
         vector_file: File | str,
         wordlist: Sequence[str] | None = None,
@@ -717,7 +717,7 @@ class Reach:
 
         return Reach(np.stack(vectors), union, name=self.name)
 
-    def save(self, path: str, write_header: bool = True) -> None:
+    def save_word2vec_format(self, path: str, write_header: bool = True) -> None:
         """
         Save the current vector space in word2vec format.
 
@@ -736,7 +736,7 @@ class Reach:
                 vec_string = " ".join([str(x) for x in vec])
                 f.write(f"{w} {vec_string}\n")
 
-    def save_fast_format(
+    def save(
         self,
         path: PathLike,
         overwrite: bool = False,
@@ -780,7 +780,7 @@ class Reach:
             np.save(file_handle, self.vectors)
 
     @classmethod
-    def load_fast_format(cls, filename: PathLike, desired_dtype: Dtype = "float32") -> Reach:
+    def load(cls, filename: PathLike, desired_dtype: Dtype | None = None) -> Reach:
         """
         Load a reach instance in fast format.
 
@@ -810,7 +810,8 @@ class Reach:
         with open(numpy_path, "rb") as file_handle:
             vectors: npt.NDArray = np.load(file_handle)
 
-        vectors = vectors.astype(desired_dtype)
+        if desired_dtype is not None and vectors.dtype != np.dtype(desired_dtype):
+            vectors = vectors.astype(desired_dtype)
         instance = cls(vectors, items, name=name, metadata=metadata)
         instance.unk_token = unk_token
 
