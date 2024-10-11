@@ -16,11 +16,6 @@ these problems from your code.
 
 `reach` also includes nearest neighbor calculation for arbitrary vectors.
 
-## [Documentation](https://reach.readthedocs.io/en/latest/)
-
-* [API reference](https://reach.readthedocs.io/en/latest/source/api.html)
-* Tutorial coming soon (see below for an example)
-
 ## Installation
 
 If you just want `reach`:
