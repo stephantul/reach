@@ -120,3 +120,27 @@ class TestVectorize(unittest.TestCase):
 
         vec = reach.mean_pool([], safeguard=False)
         self.assertTrue(np.allclose(vec, np.zeros_like(vec)))
+
+    def test_delete(self) -> None:
+        """Test delete method."""
+        words, vectors = self.data()
+        reach = Reach(vectors, words)
+
+        reach.delete(["donatello"])
+        self.assertNotIn("donatello", reach.items)
+
+        with self.assertRaises(ValueError):
+            reach.delete("donatello")
+
+    def test_delete_intersect(self) -> None:
+        """Test delete method workaround."""
+        words, vectors = self.data()
+        reach = Reach(vectors, words)
+
+        tokens_to_delete = ["donatello"]
+        items_to_keep = set(reach.items) - set(tokens_to_delete)
+        new_r = reach.intersect(items_to_keep)
+        self.assertNotIn("donatello", new_r.items)
+
+        with self.assertRaises(ValueError):
+            new_r.delete("donatello")
