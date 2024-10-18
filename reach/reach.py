@@ -104,9 +104,9 @@ class Reach:
         return self._indices
 
     @property
-    def sorted_items(self) -> Tokens:
+    def sorted_items(self) -> list[str]:
         """The items, sorted by index."""
-        items: Tokens = [item for item, _ in sorted(self.items.items(), key=lambda x: x[1])]
+        items: list[str] = [item for item, _ in sorted(self.items.items(), key=lambda x: x[1])]
         return items
 
     @property
@@ -180,6 +180,34 @@ class Reach:
             self.items[token] = len(self.items)
             self.indices[len(self.items) - 1] = token
         self.vectors = np.concatenate([self.vectors, vectors], 0)
+
+    def delete(self, tokens: Sequence[str]) -> None:
+        """
+        Delete tokens from the vector space.
+
+        The removal of tokens is done in place. If the tokens are not in the vector space,
+        a ValueError is raised.
+
+        :param tokens: A list of tokens to remove from the vector space.
+        :raises ValueError: If any passed tokens are not in the vector space.
+        """
+        try:
+            curr_indices = [self.items[token] for token in tokens]
+        except KeyError as exc:
+            raise ValueError(f"Token {exc} was not in the vector space.") from exc
+
+        tokens_set = set(tokens)
+        vectors = np.delete(self.vectors, curr_indices, axis=0)
+        new_items: dict[str, int] = {}
+        for item in self.items:
+            if item in tokens_set:
+                tokens_set.remove(item)
+                continue
+            new_items[item] = len(new_items)
+
+        self._items = new_items
+        self._indices = {idx: item for item, idx in self.items.items()}
+        self.vectors = vectors
 
     @classmethod
     def load_word2vec_format(
