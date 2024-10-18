@@ -2,7 +2,7 @@
 name = "reach"
 description = "Load your vector embeddings"
 readme = "README.md"
-version = "5.0.0"
+dynamic = ["version"]
 requires-python = ">=3.10"
 
 dependencies = [
@@ -71,3 +71,6 @@ packages = ["reach"]
 
 [tool.setuptools_scm]
 # can be empty if no extra settings are needed, presence enables setuptools_scm
+
+[tool.setuptools.dynamic]
+version = {attr = "reach.version.__version__"}
