@@ -1,6 +1,6 @@
-"""A package for reading and manipulating word embeddings."""
+"""Small vector store."""
 
 from reach.reach import Reach, normalize
+from reach.version import __version__
 
-__all__ = ["Reach", "normalize"]
-__version__ = "5.0.0"
+__all__ = ["Reach", "normalize", "__version__"]

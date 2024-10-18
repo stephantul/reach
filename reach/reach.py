@@ -1,4 +1,4 @@
-"""A class for working with vector representations."""
+"""A small vector store."""
 
 from __future__ import annotations
 
