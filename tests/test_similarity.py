@@ -194,3 +194,32 @@ class TestSimilarity(unittest.TestCase):
         result2 = instance.vector_similarity(vectors[0], [words[1]])
 
         self.assertEqual(result, result2)
+
+    def test_nearest_neighbor_indices(self) -> None:
+        """Test the nearest_neighbor_indices function."""
+        words, vectors = self.data()
+        instance = Reach(vectors, words)
+
+        # Set a high threshold to test that no indices are returned
+        threshold = 0.99
+        for word, vector in zip(words, vectors):
+            indices = list(instance.nearest_neighbor_indices(np.array([vector]), threshold=threshold))[0]
+            # Exclude self-similarity
+            indices = indices[indices != instance.items[word]]
+            self.assertEqual(indices.size, 0)
+
+        # Set a low threshold to ensure some indices are returned
+        threshold = 0.0
+        for word, vector in zip(words, vectors):
+            indices = list(instance.nearest_neighbor_indices(np.array([vector]), threshold=threshold))[0]
+
+            # Get the actual indices
+            similarities = instance.norm_vectors @ vector
+            expected_indices = np.flatnonzero(similarities > threshold)
+
+            # Convert both to sets for comparison
+            indices_set = set(indices)
+            expected_indices_set = set(expected_indices)
+
+            # Assert that the filtered indices match the expected indices
+            self.assertEqual(indices_set, expected_indices_set)
