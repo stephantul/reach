@@ -9,4 +9,4 @@ try:
 except ImportError:
     __all__ = ["Reach", "normalize"]
 
-__version__ = "4.1.1"
+__version__ = "5.0.0"
