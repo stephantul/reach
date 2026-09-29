@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from io import StringIO
 from pathlib import Path
 
 import numpy as np
@@ -73,6 +74,18 @@ def test_sep(
 ) -> None:
     path = write_embedding_file(embedding_lines(header=header, sep=","))
     Reach.load(path, sep=",")
+
+
+def test_sep_size_error_message(
+    embedding_lines: Callable[..., list[str]],
+    write_embedding_file: Callable[..., Path],
+) -> None:
+    lines = embedding_lines(sep=",")
+    lines[1] = lines[1].rsplit(",", 1)[0]
+    path = write_embedding_file(lines)
+
+    with pytest.raises(ValueError, match="size is 4, expected 5"):
+        Reach.load(path, sep=",")
 
 
 @pytest.mark.parametrize(
@@ -166,3 +179,41 @@ def test_save_load(embedding_file: Path, tmp_path: Path) -> None:
     assert np.allclose(instance.vectors, instance_2.vectors)
     assert instance.unk_index == instance_2.unk_index
     assert instance.name == instance_2.name
+
+
+def test_load_from_stringio(embedding_lines: Callable[..., list[str]]) -> None:
+    instance = Reach.load(StringIO("\n".join(embedding_lines())))
+
+    assert len(instance) == 6
+    assert instance.name == ""
+
+
+def test_load_non_numeric_value(
+    embedding_lines: Callable[..., list[str]],
+    write_embedding_file: Callable[..., Path],
+) -> None:
+    lines = embedding_lines()
+    lines[2] = "pizza 1 1 x 1 1"
+    path = write_embedding_file(lines)
+
+    with pytest.raises(ValueError, match="Could not parse"):
+        Reach.load(path)
+
+    instance = Reach.load(path, recover_from_errors=True)
+    assert "pizza" not in instance
+    assert len(instance) == 5
+
+
+def test_save_rejects_items_with_spaces(tmp_path: Path) -> None:
+    instance = Reach(np.ones((2, 3)), ["new york", "amsterdam"])
+
+    with pytest.raises(ValueError, match="space or newline"):
+        instance.save(tmp_path / "vectors.txt")
+
+
+def test_save_load_unicode(tmp_path: Path) -> None:
+    instance = Reach(np.ones((2, 3)), ["café", "日本"])
+    path = tmp_path / "vectors.txt"
+    instance.save(path)
+
+    assert list(Reach.load(path).sorted_items) == ["café", "日本"]

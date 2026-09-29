@@ -2,6 +2,7 @@ from collections.abc import Hashable
 from itertools import combinations
 
 import numpy as np
+import pytest
 
 from reach import Reach, normalize
 
@@ -151,3 +152,38 @@ def test_neighbor_similarity(
     result2 = instance.vector_similarity(vectors[0], [words[1]])
 
     assert result == result2
+
+
+def test_most_similar_num_larger_than_vocab_batched(
+    words: list[Hashable], instance: Reach
+) -> None:
+    result = instance.most_similar(words, num=10, batch_size=2)
+
+    assert [len(x) for x in result] == [5] * 6
+
+
+def test_nearest_neighbor_num_larger_than_vocab_batched(
+    vectors: np.ndarray, instance: Reach
+) -> None:
+    result = instance.nearest_neighbor(vectors, num=10, batch_size=2)
+
+    assert [len(x) for x in result] == [6] * 6
+
+
+def test_most_similar_returns_num_items(
+    words: list[Hashable], vectors: np.ndarray
+) -> None:
+    instance = Reach(np.vstack([vectors, np.zeros(50)]), [*words, "zero"])
+
+    assert len(instance.most_similar(["zero"], num=2)[0]) == 2
+
+
+def test_num_error_message(instance: Reach, vectors: np.ndarray) -> None:
+    with pytest.raises(ValueError, match="is now 0"):
+        instance.nearest_neighbor(vectors[0], num=0)
+
+
+def test_similarities_are_floats(instance: Reach, vectors: np.ndarray) -> None:
+    assert type(instance.most_similar(["leonardo"])[0][0][1]) is float
+    assert type(instance.threshold(["leonardo"], threshold=-1)[0][0][1]) is float
+    assert type(instance.nearest_neighbor(vectors[0])[0][0][1]) is float

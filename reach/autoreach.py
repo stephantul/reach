@@ -128,8 +128,15 @@ class AutoReach(Reach):
         tokens = f" {tokens} "
         if self.lowercase:
             tokens = tokens.lower()
-        for end_index, (token, index) in self.automaton.iter_long(tokens):
+        matches = []
+        for end_index, (token, index) in self.automaton.iter(tokens):
             if self.is_valid_token(token, tokens, end_index):
+                matches.append((end_index - len(token) + 1, end_index, index))
+
+        last_end = -1
+        for start, end_index, index in sorted(matches, key=lambda x: (x[0], -x[1])):
+            if start > last_end:
                 out.append(index)
+                last_end = end_index
 
         return out

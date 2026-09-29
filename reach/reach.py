@@ -5,15 +5,14 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Hashable, Iterable, Iterator
-from io import TextIOWrapper
+from itertools import chain
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import TextIO, TypeAlias
 
 import numpy as np
 from tqdm import tqdm
 
 Dtype: TypeAlias = str | np.dtype
-File: TypeAlias = Path | TextIOWrapper
 PathLike: TypeAlias = str | Path
 Matrix: TypeAlias = np.ndarray | list[np.ndarray]
 SimilarityItem: TypeAlias = list[tuple[Hashable, float]]
@@ -56,7 +55,8 @@ class Reach:
     Raises
     ------
     ValueError
-        If the number of items and vectors differ, or if items is a set or dict.
+        If the number of items and vectors differ, if items is a set or dict,
+        if items contains duplicates, or if unk_index is out of range.
 
     """
 
@@ -81,6 +81,12 @@ class Reach:
             )
 
         self._items: dict[Hashable, int] = {w: idx for idx, w in enumerate(items)}
+        if len(self._items) != len(items):
+            raise ValueError("Your item list contains duplicate items.")
+        if unk_index is not None and not 0 <= unk_index < len(items):
+            raise ValueError(
+                f"unk_index {unk_index} is out of range for {len(items)} items."
+            )
         self._indices: dict[int, Hashable] = {idx: w for w, idx in self.items.items()}
         self.vectors = np.asarray(vectors)
         self.unk_index = unk_index
@@ -89,6 +95,10 @@ class Reach:
     def __len__(self) -> int:
         """The number of the items in the vector space."""
         return len(self.items)
+
+    def __contains__(self, item: Hashable) -> bool:
+        """Whether an item is in the vector space."""
+        return item in self.items
 
     @property
     def items(self) -> dict[Hashable, int]:
@@ -115,12 +125,17 @@ class Reach:
 
     @property
     def vectors(self) -> np.ndarray:
-        """The vectors themselves"""
+        """
+        The vectors themselves.
+
+        This is a read-only view. To change the vectors, assign a new array to
+        this attribute, which also updates norm_vectors.
+        """
         return self._vectors
 
     @vectors.setter
     def vectors(self, x: Matrix) -> None:
-        x = np.asarray(x)
+        x = np.asarray(x).view()
         if not np.ndim(x) == 2:
             raise ValueError(f"Your array does not have 2 dimensions: {np.ndim(x)}")
         if not x.shape[0] == len(self.items):
@@ -128,6 +143,7 @@ class Reach:
                 f"Your array does not have the correct length, got {x.shape[0]},"
                 f" expected {len(self.items)}"
             )
+        x.flags.writeable = False
         self._vectors = x
         # Make sure norm vectors is updated.
         if hasattr(self, "_norm_vectors"):
@@ -138,7 +154,8 @@ class Reach:
         """
         Vectors, but normalized to unit length.
 
-        NOTE: when all vectors are unit length, this attribute _is_ vectors.
+        This is a read-only array. When all vectors are unit length, this
+        attribute _is_ vectors, so no extra memory is used.
         """
         if not hasattr(self, "_norm_vectors"):
             self._norm_vectors = self._normalize_or_copy(self.vectors)
@@ -147,19 +164,22 @@ class Reach:
     @staticmethod
     def _normalize_or_copy(vectors: np.ndarray) -> np.ndarray:
         """
-        This function returns a copy of vectors if they are unit length.
-        Otherwise, the vectors are normalized, and a new array is returned.
+        Return vectors itself if all vectors are unit length.
+
+        Otherwise, the vectors are normalized, and a new read-only array is returned.
         """
         norms = np.linalg.norm(vectors, axis=1)
         all_unit_length = np.allclose(norms[norms != 0], 1)
         if all_unit_length:
             return vectors
-        return Reach.normalize(vectors, norms)
+        normalized = Reach.normalize(vectors, norms)
+        normalized.flags.writeable = False
+        return normalized
 
     @classmethod
     def load(
         cls,
-        vector_file: File | str,
+        vector_file: PathLike | TextIO,
         wordlist: tuple[str, ...] | None = None,
         num_to_load: int | None = None,
         truncate_embeddings: int | None = None,
@@ -167,7 +187,6 @@ class Reach:
         sep: str = " ",
         recover_from_errors: bool = False,
         desired_dtype: Dtype = "float32",
-        **kwargs: Any,
     ) -> Reach:
         r"""
         Read a file in word2vec .txt format.
@@ -200,30 +219,22 @@ class Reach:
             duplicates or other errors.
         desired_dtype
             The dtype of the loaded vectors.
-        **kwargs
-            Unused.
 
         Returns
         -------
         r : Reach
             An initialized Reach instance.
 
-        Raises
-        ------
-        ValueError
-            If the file contains errors and recover_from_errors is False.
-
         """
-        if isinstance(vector_file, TextIOWrapper):
-            name = Path(vector_file.name).name
+        if isinstance(vector_file, str | Path):
+            vector_file = Path(vector_file)
+            name = vector_file.name
+            file_handle: TextIO = open(vector_file, encoding="utf-8")
+            came_from_path = True
+        else:
+            name = Path(getattr(vector_file, "name", "")).name
             file_handle = vector_file
             came_from_path = False
-        else:
-            if isinstance(vector_file, str):
-                vector_file = Path(vector_file)
-            name = vector_file.name
-            file_handle = open(vector_file)
-            came_from_path = True
 
         try:
             vectors, items = Reach._load(
@@ -234,10 +245,7 @@ class Reach:
                 sep,
                 recover_from_errors,
                 desired_dtype,
-                **kwargs,
             )
-        except ValueError as exc:
-            raise exc
         finally:
             if came_from_path:
                 file_handle.close()
@@ -263,7 +271,7 @@ class Reach:
 
     @staticmethod
     def _load(
-        file_handle: TextIOWrapper,
+        file_handle: TextIO,
         wordlist: tuple[str, ...] | None,
         num_to_load: int | None,
         truncate_embeddings: int | None,
@@ -284,26 +292,24 @@ class Reach:
         else:
             wordset = set(wordlist)
 
-        logger.info(f"Loading {file_handle.name}")
-        firstline = file_handle.readline().rstrip(" \n")
+        logger.info(f"Loading {getattr(file_handle, 'name', 'file handle')}")
+        raw_firstline = file_handle.readline()
+        firstline = raw_firstline.rstrip(" \n")
         try:
             num, size = map(int, firstline.split(sep))
             logger.info(f"Vector space: {num} by {size}")
-            header = True
+            lines: Iterable[str] = file_handle
+            start = 1
         except ValueError:
             size = len(firstline.split(sep)) - 1
             logger.info(f"Vector space: {size} dim, # items unknown")
-            # If the first line is correctly parseable, set header to False.
-            header = False
-        file_handle.seek(0)
+            lines = chain([raw_firstline], file_handle)
+            start = 0
 
         if truncate_embeddings is None or truncate_embeddings == 0:
             truncate_embeddings = size
 
-        for idx, line in enumerate(file_handle):
-            if header and idx == 0:
-                continue
-
+        for idx, line in enumerate(lines, start=start):
             word, rest = line.rstrip(" \n").split(sep, 1)
 
             if wordset and word not in wordset:
@@ -316,9 +322,10 @@ class Reach:
                     continue
                 raise ValueError(e)
 
-            if len(rest.split(sep)) != size:
+            line_size = len(rest.split(sep))
+            if line_size != size:
                 e = (
-                    f"Incorrect input at index {idx + 1}, size is {len(rest.split())},"
+                    f"Incorrect input at index {idx + 1}, size is {line_size},"
                     f" expected {size}."
                 )
                 if recover_from_errors:
@@ -326,9 +333,20 @@ class Reach:
                     continue
                 raise ValueError(e)
 
-            words.append(word)
-            addedwords.add(word)
-            vectors.append(np.fromstring(rest, sep=sep)[:truncate_embeddings])
+            try:
+                vector = np.fromstring(rest, sep=sep)
+                parsed = len(vector) == size
+                if not parsed:
+                    raise ValueError()
+                words.append(word)
+                addedwords.add(word)
+                vectors.append(vector[:truncate_embeddings])
+            except ValueError:
+                e = f"Could not parse the vector at index {idx + 1}."
+                if recover_from_errors:
+                    logger.warning(e)
+                    continue
+                raise ValueError(e) from None
 
             if num_to_load is not None and len(addedwords) >= num_to_load:
                 break
@@ -442,7 +460,7 @@ class Reach:
         except ValueError as exc:
             if safeguard:
                 raise exc
-            return np.zeros(self.size)
+            return np.zeros(self.size, dtype=self.vectors.dtype)
 
     def mean_pool_corpus(
         self, corpus: list[Tokens], remove_oov: bool = False, safeguard: bool = True
@@ -605,7 +623,7 @@ class Reach:
                 for item, similarity in item_result
                 if item != query_item
             ]
-            out.append(without_query)
+            out.append(without_query[:num])
         return out
 
     def threshold(
@@ -749,10 +767,10 @@ class Reach:
         for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
             batch = vectors[i : i + batch_size]
             similarities = self._sim(batch, self.norm_vectors)
-            for _, sims in enumerate(similarities):
+            for sims in similarities:
                 indices = np.flatnonzero(sims >= threshold)
                 sorted_indices = indices[np.flip(np.argsort(sims[indices]))]
-                yield [(self.indices[d], sims[d]) for d in sorted_indices]
+                yield [(self.indices[d], float(sims[d])) for d in sorted_indices]
 
     def _most_similar_batch(
         self,
@@ -763,7 +781,7 @@ class Reach:
     ) -> Iterator[SimilarityItem]:
         """Batched cosine similarity."""
         if num < 1:
-            raise ValueError("num should be >= 1, is now {num}")
+            raise ValueError(f"num should be >= 1, is now {num}")
 
         for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
             batch = vectors[i : i + batch_size]
@@ -772,7 +790,7 @@ class Reach:
                 sorted_indices = np.argmax(similarities, 1, keepdims=True)
             elif num >= len(self):
                 # If we want more than we have, just sort everything.
-                sorted_indices = np.stack([np.arange(len(self))] * len(vectors))
+                sorted_indices = np.stack([np.arange(len(self))] * len(batch))
             else:
                 sorted_indices = np.argpartition(-similarities, kth=num, axis=1)
                 sorted_indices = sorted_indices[:, :num]
@@ -780,7 +798,7 @@ class Reach:
                 sims_for_word = similarities[lidx, indices]
                 word_index = np.flip(np.argsort(sims_for_word))
                 yield [
-                    (self.indices[indices[idx]], sims_for_word[idx])
+                    (self.indices[indices[idx]], float(sims_for_word[idx]))
                     for idx in word_index
                 ]
 
@@ -806,6 +824,10 @@ class Reach:
             The input vectors, normalized to unit length.
 
         """
+        vectors = np.asarray(vectors)
+        if not np.issubdtype(vectors.dtype, np.floating):
+            vectors = vectors.astype(np.float64)
+
         if np.ndim(vectors) == 1:
             norm = np.linalg.norm(vectors)
             if norm == 0:
@@ -894,18 +916,21 @@ class Reach:
         itemlist = list(set(self.items) & set(itemlist))
         # Get indices of intersection.
         indices = sorted([self.items[item] for item in itemlist])
-        # Set unk_index to None if it is None or if it is not in indices
-        unk_index = self.unk_index if self.unk_index in indices else None
-        # Index vectors
+        unk_index: int | None = None
+        if self.unk_index is not None and self.unk_index in indices:
+            unk_index = indices.index(self.unk_index)
         vectors = self.vectors[indices]
-        # Index words
         itemlist = [self.indices[index] for index in indices]
-        return Reach(vectors, itemlist, unk_index=unk_index)
+        return type(self)(vectors, itemlist, name=self.name, unk_index=unk_index)
 
     def union(self, other: Reach, check: bool = True) -> Reach:
         """
         Union a reach with another reach.
+
         If items are in both reach instances, the current instance gets precedence.
+        The items of the current instance come first, followed by the new items of
+        the other instance, and the name and unk_index of the current instance are
+        kept. If the current instance has no unk_index, the one of other is used.
 
         Parameters
         ----------
@@ -931,20 +956,23 @@ class Reach:
                 f"The size of the embedding spaces was not the same: {self.size} and"
                 f" {other.size}"
             )
-        union = list(set(self.items) | set(other.items))
         if check:
-            intersection = set(self.items) & set(other.items)
-            for item in intersection:
+            for item in self.items.keys() & other.items.keys():
                 if not np.allclose(self[item], other[item]):
                     raise ValueError(f"Term {item} was not the same in both instances")
-        vectors = []
-        for item in union:
-            try:
-                vectors.append(self[item])
-            except KeyError:
-                vectors.append(other[item])
+        new_items = [item for item in other.sorted_items if item not in self]
+        union = [*self.sorted_items, *new_items]
+        vectors = np.concatenate(
+            [self.vectors, other.vectors[[other.items[item] for item in new_items]]]
+        )
+        if self.unk_index is not None:
+            unk_index: int | None = self.unk_index
+        elif other.unk_index is not None:
+            unk_index = union.index(other.indices[other.unk_index])
+        else:
+            unk_index = None
 
-        return Reach(np.stack(vectors), union)
+        return type(self)(vectors, union, name=self.name, unk_index=unk_index)
 
     def save(self, path: PathLike, write_header: bool = True) -> None:
         """
@@ -958,8 +986,16 @@ class Reach:
             Whether to write a word2vec-style header as the first line of the
             file
 
+        Raises
+        ------
+        ValueError
+            If an item contains a space or newline, as it could not be loaded again.
+
         """
-        with open(path, "w") as f:
+        for item in self.items:
+            if any(char in str(item) for char in " \n"):
+                raise ValueError(f"Item {item!r} contains a space or newline.")
+        with open(path, "w", encoding="utf-8") as f:
             if write_header:
                 f.write(f"{self.vectors.shape[0]} {self.vectors.shape[1]}\n")
 
@@ -981,14 +1017,14 @@ class Reach:
         filename
             The prefix to add to the saved filename. Note that this is not the
             real filename under which these items are stored.
-            The words and unk_index are stored under "{filename}_words.json",
+            The words and unk_index are stored under "{filename}_items.json",
             and the numpy matrix is saved under "{filename}_vectors.npy".
 
         """
         items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]), strict=True)
         items_dict = {"items": items, "unk_index": self.unk_index, "name": self.name}
 
-        with open(f"{filename}_items.json", "w") as file_handle:
+        with open(f"{filename}_items.json", "w", encoding="utf-8") as file_handle:
             json.dump(items_dict, file_handle)
         with open(f"{filename}_vectors.npy", "wb") as file_handle:
             np.save(file_handle, self.vectors)
@@ -1009,7 +1045,7 @@ class Reach:
         filename
             The filename prefix from which to load. Note that this is not a
             real filepath as such, but a shared prefix for both files.
-            In order for this to work, both {filename}_words.json and
+            In order for this to work, both {filename}_items.json and
             {filename}_vectors.npy should be present.
         desired_dtype
             The dtype of the loaded vectors.
@@ -1020,7 +1056,7 @@ class Reach:
             An initialized Reach instance.
 
         """
-        with open(f"{filename}_items.json") as file_handle:
+        with open(f"{filename}_items.json", encoding="utf-8") as file_handle:
             items = json.load(file_handle)
         words, unk_index, name = items["items"], items["unk_index"], items["name"]
 

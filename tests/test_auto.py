@@ -74,3 +74,14 @@ def test_vectorize(auto_instance: AutoReach) -> None:
     vecs2 = auto_instance.vectorize(text)
 
     assert np.allclose(vecs, vecs2)
+
+
+def test_bow_falls_back_to_shorter_match() -> None:
+    instance = AutoReach(np.ones((2, 4)), ["new", "new york"])
+
+    assert instance.bow("i like new yorker magazine") == [0]
+    assert instance.bow("i like new york") == [1]
+
+
+def test_intersect_keeps_type(auto_instance: AutoReach) -> None:
+    assert type(auto_instance.intersect(["leonardo"])) is AutoReach

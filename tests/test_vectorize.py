@@ -1,3 +1,5 @@
+from collections.abc import Hashable
+
 import numpy as np
 import pytest
 
@@ -107,3 +109,12 @@ def test_mean_pool_unk(unk_instance: Reach) -> None:
         [[], ["dog"], ["guogrwohu"]], safeguard=False
     )
     assert np.allclose(matrix, np.zeros_like(matrix))
+
+
+def test_mean_pool_safeguard_keeps_dtype(
+    words: list[Hashable], vectors: np.ndarray
+) -> None:
+    instance = Reach(vectors.astype("float32"), words)
+
+    vec = instance.mean_pool(["dog"], safeguard=False)
+    assert vec.dtype == np.float32
