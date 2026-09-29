@@ -96,3 +96,9 @@ def test_intersect_union_keep_lowercase(
 
     assert instance.intersect(["leonardo"]).lowercase is lowercase
     assert instance.union(other).lowercase is lowercase
+
+
+def test_autoreach_in_all() -> None:
+    import reach
+
+    assert "AutoReach" in reach.__all__

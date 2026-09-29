@@ -28,9 +28,9 @@ def test_normalize_vector() -> None:
 
 
 def test_normalize_norm() -> None:
-    x = np.arange(10)
+    x = np.arange(10).reshape(2, 5)
     result = Reach.normalize(x)
-    result_2 = Reach.normalize(x, np.linalg.norm(x))
+    result_2 = Reach.normalize(x, np.linalg.norm(x, axis=1))
 
     assert np.allclose(result, result_2)
 
@@ -187,3 +187,20 @@ def test_similarities_are_floats(instance: Reach, vectors: np.ndarray) -> None:
     assert type(instance.most_similar(["leonardo"])[0][0][1]) is float
     assert type(instance.threshold(["leonardo"], threshold=-1)[0][0][1]) is float
     assert type(instance.nearest_neighbor(vectors[0])[0][0][1]) is float
+
+
+@pytest.mark.parametrize("num", [0, -1])
+def test_most_similar_invalid_num(instance: Reach, num: int) -> None:
+    with pytest.raises(ValueError, match=f"is now {num}"):
+        instance.most_similar(["leonardo"], num=num)
+
+
+def test_generator_items(words: list[Hashable], instance: Reach) -> None:
+    assert instance.most_similar(w for w in words) == instance.most_similar(words)
+    assert instance.threshold(w for w in words) == instance.threshold(words)
+
+
+def test_empty_items(words: list[Hashable], instance: Reach) -> None:
+    assert instance.most_similar([]) == []
+    assert instance.threshold([]) == []
+    assert instance.similarity([], words).shape == (0, 6)

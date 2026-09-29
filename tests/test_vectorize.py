@@ -130,3 +130,10 @@ def test_vectorize_empty_generator(instance: Reach) -> None:
     empty: list[str] = []
     with pytest.raises(ValueError, match="empty"):
         instance.vectorize(token for token in empty)
+
+
+def test_mean_pool_corpus_empty(instance: Reach) -> None:
+    result = instance.mean_pool_corpus([])
+
+    assert result.shape == (0, 50)
+    assert result.dtype == instance.vectors.dtype

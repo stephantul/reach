@@ -292,6 +292,10 @@ class Reach:
 
         if num_to_load is not None and num_to_load <= 0:
             raise ValueError(f"num_to_load should be > 0, is now {num_to_load}")
+        if truncate_embeddings is not None and truncate_embeddings < 0:
+            raise ValueError(
+                f"truncate_embeddings should be >= 0, is now {truncate_embeddings}"
+            )
 
         if wordlist is None:
             wordset = set()
@@ -510,6 +514,8 @@ class Reach:
             except ValueError as exc:
                 raise ValueError(f"Tokens at {index} errored out") from exc
 
+        if not out:
+            return np.zeros((0, self.size), dtype=self.vectors.dtype)
         return np.stack(out)
 
     def bow(self, tokens: Tokens, remove_oov: bool = False) -> list[int]:
@@ -614,10 +620,16 @@ class Reach:
             For each items in the input the num most similar items are returned
             in the form of (NAME, SIMILARITY) tuples.
 
+        Raises
+        ------
+        ValueError
+            If num is smaller than 1.
+
         """
-        if isinstance(items, str):
-            items = [items]
-        vectors = np.stack([self.norm_vectors[self.items[item]] for item in items])
+        if num < 1:
+            raise ValueError(f"num should be >= 1, is now {num}")
+        items = [items] if isinstance(items, str) else list(items)
+        vectors = self.norm_vectors[[self.items[item] for item in items]]
         result = self._most_similar_batch(
             vectors, batch_size, num + 1, show_progressbar
         )
@@ -662,10 +674,8 @@ class Reach:
             in the form of (NAME, SIMILARITY) tuples.
 
         """
-        if isinstance(items, str):
-            items = [items]
-
-        vectors = np.stack([self.norm_vectors[self.items[x]] for x in items])
+        items = [items] if isinstance(items, str) else list(items)
+        vectors = self.norm_vectors[[self.items[item] for item in items]]
         result = self._threshold_batch(vectors, batch_size, threshold, show_progressbar)
 
         out: SimilarityResult = []
@@ -860,10 +870,8 @@ class Reach:
 
     def vector_similarity(self, vector: np.ndarray, items: Tokens) -> np.ndarray:
         """Compute the similarity between a vector and a set of items."""
-        if isinstance(items, str):
-            items = [items]
-
-        items_vec = np.stack([self.norm_vectors[self.items[item]] for item in items])
+        items = [items] if isinstance(items, str) else list(items)
+        items_vec = self.norm_vectors[[self.items[item] for item in items]]
         return self._sim(vector, items_vec)
 
     @classmethod
@@ -889,17 +897,11 @@ class Reach:
             An array of similarity scores between 1 and -1.
 
         """
-        if isinstance(items_1, str):
-            items_1 = [items_1]
-        if isinstance(items_2, str):
-            items_2 = [items_2]
+        items_1 = [items_1] if isinstance(items_1, str) else list(items_1)
+        items_2 = [items_2] if isinstance(items_2, str) else list(items_2)
 
-        items_1_matrix = np.stack(
-            [self.norm_vectors[self.items[item]] for item in items_1]
-        )
-        items_2_matrix = np.stack(
-            [self.norm_vectors[self.items[item]] for item in items_2]
-        )
+        items_1_matrix = self.norm_vectors[[self.items[item] for item in items_1]]
+        items_2_matrix = self.norm_vectors[[self.items[item] for item in items_2]]
         return self._sim(items_1_matrix, items_2_matrix)
 
     def _new(

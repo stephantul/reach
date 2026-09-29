@@ -1,5 +1,7 @@
+import importlib
 import sys
 from collections.abc import Hashable
+from typing import Any
 
 import numpy as np
 import pytest
@@ -196,3 +198,18 @@ def test_init_empty() -> None:
 def test_intersect_no_overlap(instance: Reach) -> None:
     with pytest.raises(ValueError, match="None of the items"):
         instance.intersect(["shredder"])
+
+
+def test_star_import_without_autoreach(monkeypatch: pytest.MonkeyPatch) -> None:
+    import reach
+
+    with monkeypatch.context() as m:
+        m.setitem(sys.modules, "ahocorasick", None)
+        m.delitem(sys.modules, "reach.autoreach", raising=False)
+        importlib.reload(reach)
+        namespace: dict[str, Any] = {}
+        exec("from reach import *", namespace)
+
+        assert "Reach" in namespace
+        assert "AutoReach" not in namespace
+    importlib.reload(reach)

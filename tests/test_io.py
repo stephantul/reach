@@ -217,3 +217,8 @@ def test_save_load_unicode(tmp_path: Path) -> None:
     instance.save(path)
 
     assert list(Reach.load(path).sorted_items) == ["café", "日本"]
+
+
+def test_negative_truncation(embedding_file: Path) -> None:
+    with pytest.raises(ValueError, match="truncate_embeddings"):
+        Reach.load(embedding_file, truncate_embeddings=-1)
