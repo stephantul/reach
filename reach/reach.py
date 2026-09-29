@@ -1,4 +1,5 @@
 """A class for working with vector representations."""
+
 from __future__ import annotations
 
 import json
@@ -41,15 +42,15 @@ class Reach(object):
 
     Parameters
     ----------
-    vectors : numpy array
+    vectors
         The vector space.
-    items : list
+    items
         A list of items. Length must be equal to the number of vectors, and
         aligned with the vectors.
-    name : string, optional, default ''
+    name
         A string giving the name of the current reach. Only useful if you
         have multiple spaces and want to keep track of them.
-    unk_index : int or None, optional, default None
+    unk_index
         The index of the UNK item. If this is None, any attempts at vectorizing
         OOV items will throw an error.
 
@@ -61,6 +62,11 @@ class Reach(object):
     name : string
         The name of the Reach instance.
 
+    Raises
+    ------
+    ValueError
+        If the number of items and vectors differ, or if items is a set or dict.
+
     """
 
     def __init__(
@@ -70,7 +76,6 @@ class Reach(object):
         name: str = "",
         unk_index: Optional[int] = None,
     ) -> None:
-        """Initialize a Reach instance with an array and list of items."""
         if len(items) != len(vectors):
             raise ValueError(
                 "Your vector space and list of items are not the same length: "
@@ -181,33 +186,41 @@ class Reach(object):
 
         Parameters
         ----------
-        vector_file : string, Path or file handle
+        vector_file
             The path to the vector file, or an opened vector file.
-        header : bool
-            Whether the vector file has a header of the type
-            (NUMBER OF ITEMS, SIZE OF VECTOR).
-        wordlist : iterable, optional, default ()
+        wordlist
             A list of words you want loaded from the vector file. If this is
             None (default), all words will be loaded.
-        num_to_load : int, optional, default None
+        num_to_load
             The number of items to load from the file. Because loading can take
             some time, it is sometimes useful to onlyl load the first n items
             from a vector file for quick inspection.
-        truncate_embeddings : int, optional, default None
+        truncate_embeddings
             If this value is not None, the vectors in the vector space will
             be truncated to the number of dimensions indicated by this value.
-        unk_word : object
+        unk_word
             The object to treat as UNK in your vector space. If this is not
             in your items dictionary after loading, we add it with a zero
             vector.
-        recover_from_errors : bool
+        sep
+            The separator used between the item and the vector values.
+        recover_from_errors
             If this flag is True, the model will continue after encountering
             duplicates or other errors.
+        desired_dtype
+            The dtype of the loaded vectors.
+        **kwargs
+            Unused.
 
         Returns
         -------
         r : Reach
             An initialized Reach instance.
+
+        Raises
+        ------
+        ValueError
+            If the file contains errors and recover_from_errors is False.
 
         """
         if isinstance(vector_file, TextIOWrapper):
@@ -306,7 +319,7 @@ class Reach(object):
                 continue
 
             if word in addedwords:
-                e = f"Duplicate: {word} on line {idx+1} was in the vector space twice"
+                e = f"Duplicate: {word} on line {idx + 1} was in the vector space twice"
                 if recover_from_errors:
                     logger.warning(e)
                     continue
@@ -314,7 +327,7 @@ class Reach(object):
 
             if len(rest.split(sep)) != size:
                 e = (
-                    f"Incorrect input at index {idx+1}, size is {len(rest.split())},"
+                    f"Incorrect input at index {idx + 1}, size is {len(rest.split())},"
                     f" expected {size}."
                 )
                 if recover_from_errors:
@@ -362,13 +375,13 @@ class Reach(object):
 
         Parameters
         ----------
-        tokens : object or list of objects
+        tokens
             The tokens to vectorize.
-        remove_oov : bool, optional, default False
+        remove_oov
             Whether to remove OOV items. If False, OOV items are replaced by
             the UNK glyph. If this is True, the returned sequence might
             have a different length than the original sequence.
-        norm : bool, optional, default False
+        norm
             Whether to return the unit vectors, or the regular vectors.
 
         Returns
@@ -377,6 +390,11 @@ class Reach(object):
             An M * N matrix, where every item has been replaced by
             its vector. OOV items are either removed, or replaced
             by the value of the UNK glyph.
+
+        Raises
+        ------
+        ValueError
+            If tokens is empty, or if all tokens are removed as OOV.
 
         """
         if not tokens:
@@ -402,14 +420,14 @@ class Reach(object):
 
         Parameters
         ----------
-        tokens : list.
+        tokens
             The list of items to vectorize and then mean pool.
-        remove_oov : bool.
+        remove_oov
             Whether to remove OOV items from the input.
             If this is False, and an unknown item is encountered, then
             the <UNK> symbol will be inserted if it is set. If it is not set,
             then the function will throw a ValueError.
-        safeguard : bool.
+        safeguard
             There are a variety of reasons why we can't vectorize a list of tokens:
                 - The list might be empty after removing OOV
                 - We remove OOV but haven't set <UNK>
@@ -421,6 +439,11 @@ class Reach(object):
         vector: np.ndarray
             a vector of the correct size, which is the mean of all tokens
             in the sentence.
+
+        Raises
+        ------
+        ValueError
+            If the tokens cannot be vectorized and safeguard is True.
 
         """
         try:
@@ -438,14 +461,14 @@ class Reach(object):
 
         Parameters
         ----------
-        corpus : a list of list of tokens.
+        corpus
             The list of items to vectorize and then mean pool.
-        remove_oov : bool.
+        remove_oov
             Whether to remove OOV items from the input.
             If this is False, and an unknown item is encountered, then
             the <UNK> symbol will be inserted if it is set. If it is not set,
             then the function will throw a ValueError.
-        safeguard : bool.
+        safeguard
             There are a variety of reasons why we can't vectorize a list of tokens:
             - The list might be empty after removing OOV
             - We remove OOV but haven't set <UNK>
@@ -457,6 +480,11 @@ class Reach(object):
         vector: np.ndarray
             a matrix with number of rows n, where n is the number of input lists, and
             columns s, which is the number of columns of a single vector.
+
+        Raises
+        ------
+        ValueError
+            If any list of tokens cannot be vectorized and safeguard is True.
 
         """
         out = []
@@ -474,9 +502,9 @@ class Reach(object):
 
         Parameters
         ----------
-        tokens : list.
+        tokens
             The list of items to change into a bag of words representation.
-        remove_oov : bool.
+        remove_oov
             Whether to remove OOV items from the input.
             If this is True, the length of the returned BOW representation
             might not be the length of the original representation.
@@ -485,6 +513,12 @@ class Reach(object):
         -------
         bow : list
             A BOW representation of the list of items.
+
+        Raises
+        ------
+        ValueError
+            If tokens is a string, or if an OOV item is encountered while
+            remove_oov is False and unk_index is None.
 
         """
         if isinstance(tokens, str):
@@ -517,12 +551,12 @@ class Reach(object):
 
         Parameters
         ----------
-        corpus : A list of list of strings.
+        corpus
             Represents a corpus as a list of sentences, where a sentence
             is a list of tokens.
-        remove_oov : bool, optional, default False
+        remove_oov
             If True, removes OOV items from the input before vectorization.
-        norm : bool, optional, default False
+        norm
             If True, this will return normalized vectors.
 
         Returns
@@ -548,14 +582,14 @@ class Reach(object):
 
         Parameters
         ----------
-        items : list of objects or a single object.
+        items
             The items to get the most similar items to.
-        num : int, optional, default 10
+        num
             The number of most similar items to retrieve.
-        batch_size : int, optional, default 100.
+        batch_size
             The batch size to use. 100 is a good default option. Increasing
             the batch size may increase the speed.
-        show_progressbar : bool, optional, default False
+        show_progressbar
             Whether to show a progressbar.
 
         Returns
@@ -574,7 +608,7 @@ class Reach(object):
 
         out: SimilarityResult = []
         # Remove queried item from similarity list
-        for query_item, item_result in zip(items, result):
+        for query_item, item_result in zip(items, result, strict=True):
             without_query = [
                 (item, similarity)
                 for item, similarity in item_result
@@ -595,14 +629,14 @@ class Reach(object):
 
         Parameters
         ----------
-        items : list of objects or a single object.
+        items
             The items to get the most similar items to.
-        threshold : float, optional, default .5
+        threshold
             The radius within which to retrieve items.
-        batch_size : int, optional, default 100.
+        batch_size
             The batch size to use. 100 is a good default option. Increasing
             the batch size may increase the speed.
-        show_progressbar : bool, optional, default False
+        show_progressbar
             Whether to show a progressbar.
 
         Returns
@@ -620,7 +654,7 @@ class Reach(object):
 
         out: SimilarityResult = []
         # Remove queried item from similarity list
-        for query_item, item_result in zip(items, result):
+        for query_item, item_result in zip(items, result, strict=True):
             without_query = [
                 (item, similarity)
                 for item, similarity in item_result
@@ -646,14 +680,14 @@ class Reach(object):
 
         Parameters
         ----------
-        vectors : list of arrays or numpy array
+        vectors
             The vectors to find the nearest neighbors to.
-        num : int, optional, default 10
+        num
             The number of most similar items to retrieve.
-        batch_size : int, optional, default 100.
+        batch_size
             The batch size to use. 100 is a good default option. Increasing
             the batch size may increase speed.
-        show_progressbar : bool, optional, default False
+        show_progressbar
             Whether to show a progressbar.
 
         Returns
@@ -688,14 +722,14 @@ class Reach(object):
 
         Parameters
         ----------
-        vectors : list of arrays or numpy array
+        vectors
             The vectors to find the nearest neighbors to.
-        threshold : float, optional, default .5
+        threshold
             The threshold within to retrieve items.
-        batch_size : int, optional, default 100.
+        batch_size
             The batch size to use. 100 is a good default option. Increasing
             the batch size may increase speed.
-        show_progressbar : bool, optional, default False
+        show_progressbar
             Whether to show a progressbar.
 
         Returns
@@ -772,9 +806,9 @@ class Reach(object):
 
         Parameters
         ----------
-        vectors : np.array
+        vectors
             The vectors to normalize.
-        norms: np.ndarray
+        norms
             Precomputed norms.
 
         Returns
@@ -826,9 +860,9 @@ class Reach(object):
 
         Parameters
         ----------
-        items_1 : iterable of items
+        items_1
             The first collection of items.
-        items_2 : iterable of items
+        items_2
             The second collection of item.
 
         Returns
@@ -856,10 +890,15 @@ class Reach(object):
 
         Parameters
         ----------
-        itemlist : list of hashables
+        itemlist
             A list of items to keep. Note that this itemlist need not include
             all words in the Reach instance. Any words which are in the
             itemlist, but not in the reach instance, are ignored.
+
+        Returns
+        -------
+        r : Reach
+            A new Reach instance containing only the intersecting items.
 
         """
         # Remove duplicates and oov words.
@@ -881,10 +920,21 @@ class Reach(object):
 
         Parameters
         ----------
-        other : Reach
+        other
             Another Reach instance.
-        check : bool
+        check
             Whether to check if duplicates are the same vector.
+
+        Returns
+        -------
+        r : Reach
+            A new Reach instance containing the items of both instances.
+
+        Raises
+        ------
+        ValueError
+            If the vector sizes differ, or if check is True and a shared item
+            has different vectors.
 
         """
         if self.size != other.size:
@@ -907,15 +957,15 @@ class Reach(object):
 
         return Reach(np.stack(vectors), union)
 
-    def save(self, path: str, write_header: bool = True) -> None:
+    def save(self, path: PathLike, write_header: bool = True) -> None:
         """
         Save the current vector space in word2vec format.
 
         Parameters
         ----------
-        path : str
+        path
             The path to save the vector file to.
-        write_header : bool, optional, default True
+        write_header
             Whether to write a word2vec-style header as the first line of the
             file
 
@@ -930,7 +980,7 @@ class Reach(object):
                 vec_string = " ".join([str(x) for x in vec])
                 f.write(f"{w} {vec_string}\n")
 
-    def save_fast_format(self, filename: str) -> None:
+    def save_fast_format(self, filename: PathLike) -> None:
         """
         Save a reach instance in a fast format.
 
@@ -939,14 +989,14 @@ class Reach(object):
 
         Parameters
         ----------
-        filename : str
+        filename
             The prefix to add to the saved filename. Note that this is not the
             real filename under which these items are stored.
             The words and unk_index are stored under "{filename}_words.json",
             and the numpy matrix is saved under "{filename}_vectors.npy".
 
         """
-        items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]))
+        items, _ = zip(*sorted(self.items.items(), key=lambda x: x[1]), strict=True)
         items_dict = {"items": items, "unk_index": self.unk_index, "name": self.name}
 
         with open(f"{filename}_items.json", "w") as file_handle:
@@ -967,11 +1017,18 @@ class Reach(object):
 
         Parameters
         ----------
-        filename : str
+        filename
             The filename prefix from which to load. Note that this is not a
             real filepath as such, but a shared prefix for both files.
             In order for this to work, both {filename}_words.json and
             {filename}_vectors.npy should be present.
+        desired_dtype
+            The dtype of the loaded vectors.
+
+        Returns
+        -------
+        r : Reach
+            An initialized Reach instance.
 
         """
         with open(f"{filename}_items.json") as file_handle:

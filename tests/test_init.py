@@ -1,99 +1,83 @@
-import unittest
-from typing import Hashable, List, Tuple
+from typing import Hashable, List
 
 import numpy as np
+import pytest
 
 from reach import Reach
 
 
-class TestInit(unittest.TestCase):
-    def data(self) -> Tuple[List[Hashable], np.ndarray]:
-        words: List[Hashable] = [
-            "donatello",
-            "leonardo",
-            "raphael",
-            "michelangelo",
-            "splinter",
-            "hideout",
-        ]
-        random_generator = np.random.RandomState(seed=44)
-        vectors = random_generator.standard_normal((6, 50))
+def test_init(words: List[Hashable], vectors: np.ndarray, instance: Reach) -> None:
+    assert len(instance) == 6
+    assert instance.size == 50
+    assert np.allclose(instance.vectors, vectors)
 
-        return words, vectors
+    sorted_words, _ = zip(
+        *sorted(instance.items.items(), key=lambda x: x[1]), strict=True
+    )
+    assert list(sorted_words) == words
 
-    def test_init(self) -> None:
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
+    instance_2 = Reach(vectors.tolist(), words)
+    assert np.allclose(instance_2.vectors, instance.vectors)
 
-        self.assertEqual(len(instance), 6)
-        self.assertEqual(instance.size, 50)
-        self.assertTrue(np.allclose(instance.vectors, vectors))
 
-        sorted_words, _ = zip(*sorted(instance.items.items(), key=lambda x: x[1]))
-        self.assertEqual(list(sorted_words), words)
+def test_init_mismatched_lengths(words: List[Hashable], vectors: np.ndarray) -> None:
+    with pytest.raises(ValueError):
+        Reach(vectors[:5], words)
 
-        with self.assertRaises(ValueError):
-            Reach(vectors[:5], words)
+    with pytest.raises(ValueError):
+        Reach(vectors, words[:5])
 
-        with self.assertRaises(ValueError):
-            Reach(vectors, words[:5])
 
-        with self.assertRaises(ValueError):
-            # Need to ignore type to trick mypy
-            Reach(vectors, set(words))  # type: ignore
+def test_init_unordered_items(words: List[Hashable], vectors: np.ndarray) -> None:
+    with pytest.raises(ValueError):
+        # Need to ignore type to trick mypy
+        Reach(vectors, set(words))  # type: ignore
 
-        instance_2 = Reach(vectors.tolist(), words)
-        self.assertTrue(np.allclose(instance_2.vectors, instance.vectors))
 
-        instance = Reach(vectors, words, name="sensei")
-        self.assertEqual(instance.name, "sensei")
+def test_init_name(words: List[Hashable], vectors: np.ndarray) -> None:
+    instance = Reach(vectors, words, name="sensei")
+    assert instance.name == "sensei"
 
-        instance = Reach(vectors, words, unk_index=1)
-        self.assertEqual(instance.unk_index, 1)
-        self.assertEqual(list(instance.sorted_items), words)
 
-        with self.assertRaises(AttributeError):
-            instance.indices = [0, 1, 2]  # type: ignore
+def test_init_unk_index(words: List[Hashable], vectors: np.ndarray) -> None:
+    instance = Reach(vectors, words, unk_index=1)
+    assert instance.unk_index == 1
+    assert list(instance.sorted_items) == words
 
-        with self.assertRaises(AttributeError):
-            instance.items = {"dog": 1}  # type: ignore
 
-    def test_init_vectors_no_norm(self) -> None:
-        words, vectors = self.data()
-        r = Reach(vectors, words)
+def test_readonly_attributes(instance: Reach) -> None:
+    with pytest.raises(AttributeError):
+        instance.indices = [0, 1, 2]  # type: ignore
 
-        self.assertFalse(hasattr(r, "_norm_vectors"))
-        # Initialize norm vectors
-        r.norm_vectors[0]
-        self.assertTrue(hasattr(r, "norm_vectors"))
-        self.assertFalse(r.vectors is r.norm_vectors)
+    with pytest.raises(AttributeError):
+        instance.items = {"dog": 1}  # type: ignore
 
-    def test_init_vectors_norm(self) -> None:
-        words, vectors = self.data()
-        vectors = Reach.normalize(vectors)
 
-        r = Reach(vectors, words)
-        self.assertFalse(hasattr(r, "_norm_vectors"))
-        # Initialize norm vectors
-        r.norm_vectors[0]
-        self.assertTrue(hasattr(r, "norm_vectors"))
-        self.assertTrue(r.vectors is r.norm_vectors)
+def test_init_vectors_no_norm(instance: Reach) -> None:
+    assert not hasattr(instance, "_norm_vectors")
+    # Initialize norm vectors
+    instance.norm_vectors[0]
+    assert hasattr(instance, "norm_vectors")
+    assert instance.vectors is not instance.norm_vectors
 
-    def test_vectors_auto_norm_no_copy(self) -> None:
-        _, vectors = self.data()
-        result = Reach._normalize_or_copy(vectors)
 
-        self.assertTrue(np.allclose(Reach.normalize(vectors), result))
+def test_init_vectors_norm(words: List[Hashable], vectors: np.ndarray) -> None:
+    r = Reach(Reach.normalize(vectors), words)
+    assert not hasattr(r, "_norm_vectors")
+    # Initialize norm vectors
+    r.norm_vectors[0]
+    assert hasattr(r, "norm_vectors")
+    assert r.vectors is r.norm_vectors
 
-    def test_vectors_auto_norm_copy(self) -> None:
-        _, vectors = self.data()
-        vectors = Reach.normalize(vectors)
-        result = Reach._normalize_or_copy(vectors)
 
-        self.assertTrue(vectors is result)
+def test_vectors_auto_norm(vectors: np.ndarray) -> None:
+    result = Reach._normalize_or_copy(vectors)
 
-    def test_vectors_auto_norm(self) -> None:
-        _, vectors = self.data()
-        result = Reach._normalize_or_copy(vectors)
+    assert np.allclose(Reach.normalize(vectors), result)
 
-        self.assertTrue(np.allclose(Reach.normalize(vectors), result))
+
+def test_vectors_auto_norm_copy(vectors: np.ndarray) -> None:
+    vectors = Reach.normalize(vectors)
+    result = Reach._normalize_or_copy(vectors)
+
+    assert vectors is result

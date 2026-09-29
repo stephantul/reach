@@ -1,151 +1,109 @@
-import logging
-import unittest
-from typing import Hashable, List, Tuple
-
 import numpy as np
+import pytest
 
 from reach import Reach
 
-logger = logging.getLogger(__name__)
+
+def test_vectorize_no_unk(instance: Reach) -> None:
+    with pytest.raises(ValueError):
+        instance.vectorize(("donatello", "abcd"), remove_oov=False)
+
+    with pytest.raises(ValueError):
+        instance.vectorize([])
+
+    with pytest.raises(ValueError):
+        instance.vectorize("")
+
+    vec = instance.vectorize(("donatello", "abcd"), remove_oov=True)
+    assert len(vec) == 1
+    assert np.allclose(vec, instance["donatello"])
 
 
-class TestVectorize(unittest.TestCase):
-    def data(self) -> Tuple[List[Hashable], np.ndarray]:
-        words: List[Hashable] = [
-            "donatello",
-            "leonardo",
-            "raphael",
-            "michelangelo",
-            "splinter",
-            "hideout",
-        ]
-        random_generator = np.random.RandomState(seed=44)
-        vectors = random_generator.standard_normal((6, 50))
+def test_vectorize_unk(unk_instance: Reach) -> None:
+    assert unk_instance.indices[unk_instance.unk_index] == "<UNK>"  # type: ignore
+    assert np.allclose(unk_instance.vectors[-1], np.zeros(unk_instance.size))
 
-        return words, vectors
 
-    def test_vectorize_no_unk(self) -> None:
-        words, vectors = self.data()
-        reach = Reach(vectors, words)
+def test_bow_no_unk(instance: Reach) -> None:
+    bow = instance.bow(["donatello", "leonardo", "michelangelo"])
+    assert bow == [0, 1, 3]
 
-        with self.assertRaises(ValueError):
-            reach.vectorize(("donatello", "abcd"), remove_oov=False)
+    bow = instance.bow(["donatello", "leonardo", "rgieurghegh"], remove_oov=True)
+    assert bow == [0, 1]
 
-        with self.assertRaises(ValueError):
-            reach.vectorize([])
+    with pytest.raises(ValueError):
+        instance.bow(["donatello", "wroughwuorg"], remove_oov=False)
 
-        with self.assertRaises(ValueError):
-            reach.vectorize("")
+    with pytest.raises(ValueError):
+        instance.bow("")
 
-        vec = reach.vectorize(("donatello", "abcd"), remove_oov=True)
-        self.assertEqual(len(vec), 1)
-        self.assertTrue(np.allclose(vec, reach["donatello"]))
 
-    def test_vectorize_unk(self) -> None:
-        words, vectors = self.data()
-        words.append("<UNK>")
-        vectors = np.concatenate([vectors, np.zeros((1, vectors.shape[1]))])
-        reach = Reach(vectors, words, unk_index=len(words) - 1)
+def test_bow_unk(unk_instance: Reach) -> None:
+    bow = unk_instance.bow(["donatello", "leonardo", "rgieurghegh"])
+    assert bow == [0, 1, unk_instance.unk_index]
 
-        self.assertEqual(reach.indices[reach.unk_index], "<UNK>")  # type: ignore
-        self.assertTrue(np.allclose(vectors[-1], np.zeros(reach.size)))
+    bow = unk_instance.bow(["donatello", "leonardo", "rgieurghegh"], remove_oov=True)
+    assert bow == [0, 1]
 
-    def test_bow_no_unk(self) -> None:
-        words, vectors = self.data()
-        reach = Reach(vectors, words)
 
-        bow = reach.bow(["donatello", "leonardo", "michelangelo"])
-        self.assertEqual(bow, [0, 1, 3])
+def test_transform(instance: Reach) -> None:
+    with pytest.raises(ValueError):
+        instance.transform([["donatello", "raphael"], ["dog"], ["clown", "donatello"]])
 
-        bow = reach.bow(["donatello", "leonardo", "rgieurghegh"], remove_oov=True)
-        self.assertEqual(bow, [0, 1])
+    matrices = instance.transform([["donatello", "raphael"], ["donatello", "splinter"]])
 
-        with self.assertRaises(ValueError):
-            bow = reach.bow(["donatello", "wroughwuorg"], remove_oov=False)
+    expected = [
+        np.stack([instance["donatello"], instance["raphael"]]),
+        np.stack([instance["donatello"], instance["splinter"]]),
+    ]
+    for matrix, exp_matrix in zip(matrices, expected, strict=True):
+        assert np.allclose(matrix, exp_matrix)
 
-        with self.assertRaises(ValueError):
-            bow = reach.bow("")
+    matrices = instance.transform(
+        [["donatello", "raphael"], ["rqghqgr", "splinter"]], remove_oov=True
+    )
 
-    def test_bow_unk(self) -> None:
-        words, vectors = self.data()
-        words.append("<UNK>")
-        vectors = np.concatenate([vectors, np.zeros((1, vectors.shape[1]))])
-        reach = Reach(vectors, words, unk_index=len(words) - 1)
+    expected = [
+        np.stack([instance["donatello"], instance["raphael"]]),
+        np.stack([instance["splinter"]]),
+    ]
+    for matrix, exp_matrix in zip(matrices, expected, strict=True):
+        assert np.allclose(matrix, exp_matrix)
 
-        bow = reach.bow(["donatello", "leonardo", "rgieurghegh"])
-        self.assertEqual(bow, [0, 1, reach.unk_index])
+    with pytest.raises(ValueError):
+        instance.transform([[]])
 
-        bow = reach.bow(["donatello", "leonardo", "rgieurghegh"], remove_oov=True)
-        self.assertEqual(bow, [0, 1])
+    assert instance.transform([]) == []
 
-    def test_transform(self) -> None:
-        words, vectors = self.data()
-        reach = Reach(vectors, words)
 
-        with self.assertRaises(ValueError):
-            reach.transform([["donatello", "raphael"], ["dog"], ["clown", "donatello"]])
+def test_mean_pool(instance: Reach) -> None:
+    with pytest.raises(ValueError):
+        instance.mean_pool(["donatello", "dog"])
 
-        matrices = reach.transform(
-            [["donatello", "raphael"], ["donatello", "splinter"]]
-        )
+    vec = instance.mean_pool(["donatello", "dog"], safeguard=False)
+    assert np.allclose(vec, np.zeros_like(vec))
 
-        expected = [
-            np.stack([reach["donatello"], reach["raphael"]]),
-            np.stack([reach["donatello"], reach["splinter"]]),
-        ]
-        for matrix, exp_matrix in zip(matrices, expected):
-            self.assertTrue(np.allclose(matrix, exp_matrix))
+    vec = instance.mean_pool(["donatello", "dog"], remove_oov=True)
+    assert np.allclose(vec, instance["donatello"])
 
-        matrices = reach.transform(
-            [["donatello", "raphael"], ["rqghqgr", "splinter"]], remove_oov=True
-        )
 
-        expected = [
-            np.stack([reach["donatello"], reach["raphael"]]),
-            np.stack([reach["splinter"]]),
-        ]
-        for matrix, exp_matrix in zip(matrices, expected):
-            self.assertTrue(np.allclose(matrix, exp_matrix))
+def test_mean_pool_unk(unk_instance: Reach) -> None:
+    vec = unk_instance.mean_pool(["donatello", "dog"])
+    assert np.allclose(vec, unk_instance["donatello"] / 2)
 
-        with self.assertRaises(ValueError):
-            reach.transform([[]])
+    vec = unk_instance.mean_pool(["donatello", "dog"], safeguard=True)
+    assert np.allclose(vec, unk_instance["donatello"] / 2)
 
-        empty_result = reach.transform([])
-        self.assertEqual(empty_result, [])
+    vec = unk_instance.mean_pool(["donatello", "dog"], remove_oov=True)
+    assert np.allclose(vec, unk_instance["donatello"])
 
-    def test_mean_pool(self) -> None:
-        words, vectors = self.data()
-        reach = Reach(vectors, words)
+    vec = unk_instance.mean_pool([], safeguard=False)
+    assert np.allclose(vec, np.zeros_like(vec))
 
-        with self.assertRaises(ValueError):
-            reach.mean_pool(["donatello", "dog"])
+    with pytest.raises(ValueError):
+        unk_instance.mean_pool_corpus([[], ["dog"], ["guogrwohu"]], safeguard=True)
 
-        vec = reach.mean_pool(["donatello", "dog"], safeguard=False)
-        self.assertTrue(np.allclose(vec, np.zeros_like(vec)))
-
-        vec = reach.mean_pool(["donatello", "dog"], remove_oov=True)
-        self.assertTrue(np.allclose(vec, reach["donatello"]))
-
-    def test_mean_pool_unk(self) -> None:
-        words, vectors = self.data()
-        words.append("<UNK>")
-        vectors = np.concatenate([vectors, np.zeros((1, vectors.shape[1]))])
-        reach = Reach(vectors, words, unk_index=len(words) - 1)
-
-        vec = reach.mean_pool(["donatello", "dog"])
-        self.assertTrue(np.allclose(vec, reach["donatello"] / 2))
-
-        vec = reach.mean_pool(["donatello", "dog"], safeguard=True)
-        self.assertTrue(np.allclose(vec, reach["donatello"] / 2))
-
-        vec = reach.mean_pool(["donatello", "dog"], remove_oov=True)
-        self.assertTrue(np.allclose(vec, reach["donatello"]))
-
-        vec = reach.mean_pool([], safeguard=False)
-        self.assertTrue(np.allclose(vec, np.zeros_like(vec)))
-
-        with self.assertRaises(ValueError):
-            reach.mean_pool_corpus([[], ["dog"], ["guogrwohu"]], safeguard=True)
-
-        matrix = reach.mean_pool_corpus([[], ["dog"], ["guogrwohu"]], safeguard=False)
-        self.assertTrue(np.allclose(matrix, np.zeros_like(matrix)))
+    matrix = unk_instance.mean_pool_corpus(
+        [[], ["dog"], ["guogrwohu"]], safeguard=False
+    )
+    assert np.allclose(matrix, np.zeros_like(matrix))

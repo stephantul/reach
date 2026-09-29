@@ -30,19 +30,19 @@ class AutoReach(Reach):
 
     Parameters
     ----------
-    vectors : numpy array
+    vectors
         The vector space.
-    items : list
+    items
         A list of items. Length must be equal to the number of vectors, and
         aligned with the vectors.
-    lowercase : bool or str
+    lowercase
         This determines whether the string should be lowercased or not before
         searching it. If this is set to 'auto', the items in the vector space
         are used to determine whether this attribute should be true or false.
-    name : string, optional, default ''
+    name
         A string giving the name of the current reach. Only useful if you
         have multiple spaces and want to keep track of them.
-    unk_index : int or None, optional, default None
+    unk_index
         The index of the UNK item. If this is None, any attempts at vectorizing
         OOV items will throw an error.
 
@@ -54,6 +54,11 @@ class AutoReach(Reach):
     name : string
         The name of the Reach instance.
 
+    Raises
+    ------
+    ValueError
+        If any of the items is not a string.
+
     """
 
     def __init__(
@@ -64,7 +69,6 @@ class AutoReach(Reach):
         name: str = "",
         unk_index: Optional[int] = None,
     ) -> None:
-        """Initialize a Reach instance with an array and list of strings."""
         super().__init__(vectors, items, name, unk_index)
         self.automaton = Automaton()
         if not all(isinstance(item, str) for item in self.items):
@@ -102,15 +106,20 @@ class AutoReach(Reach):
 
         Parameters
         ----------
-        tokens : str.
+        tokens
             The string from which to extract in vocabulary tokens
-        remove_oov : bool.
+        remove_oov
             Not used.
 
         Returns
         -------
         bow : list
             A BOW representation of the list of items.
+
+        Raises
+        ------
+        ValueError
+            If tokens is not a string.
 
         """
         if not isinstance(tokens, str):

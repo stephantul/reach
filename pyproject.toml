@@ -1,7 +1,77 @@
+[project]
+name = "reach"
+description = "A light-weight package for working with pre-trained word embeddings"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Stéphan Tulkens", email = "stephantul@gmail.com" }]
+keywords = ["word vectors", "natural language processing", "embeddings"]
+dynamic = ["version"]
+
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "numpy",
+    "tqdm",
+]
+
 [build-system]
-requires = ["setuptools >= 40.6.0", "wheel"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["reach"]
+
+[project.optional-dependencies]
+dev = [
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+auto = ["pyahocorasick"]
+
+[project.urls]
+"Source Code" = "https://github.com/stephantul/reach"
+"Issue Tracker" = "https://github.com/stephantul/reach/issues"
+
 [tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
 select = ["E", "F", "B", "I001", "I002"]
-target-version = "py38"
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+follow_imports = "normal"
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["numpy.*", "tqdm.*", "ahocorasick.*"]
+ignore_missing_imports = true
+
+[tool.setuptools.dynamic]
+version = { attr = "reach.__version__" }
+
+[tool.pydoclint]
+style = "numpy"
+exclude = "tests"
+allow-init-docstring = false
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-class-attributes = false

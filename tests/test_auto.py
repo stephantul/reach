@@ -1,102 +1,76 @@
-import unittest
-from typing import Hashable, List, Tuple
+from typing import Hashable, List
 
 import numpy as np
+import pytest
 
-from reach import AutoReach, Reach
+pytest.importorskip("ahocorasick")
+
+from reach import AutoReach, Reach  # noqa: E402
 
 
-class TestAuto(unittest.TestCase):
-    def data(self) -> Tuple[List[Hashable], np.ndarray]:
-        words: List[Hashable] = [
-            "donatello",
-            "leonardo",
-            "raphael",
-            "michelangelo",
-            "splinter",
-            "hideout",
-        ]
-        random_generator = np.random.RandomState(seed=44)
-        vectors = random_generator.standard_normal((6, 50))
+@pytest.fixture
+def auto_instance(words: List[Hashable], vectors: np.ndarray) -> AutoReach:
+    return AutoReach(vectors, words)
 
-        return words, vectors
 
-    def test_load(self) -> None:
-        words, vectors = self.data()
-        instance = AutoReach(vectors, words)
+def test_load(
+    words: List[Hashable], vectors: np.ndarray, auto_instance: AutoReach
+) -> None:
+    assert len(auto_instance.automaton) == len(words)
 
-        self.assertEqual(len(instance.automaton), len(words))
+    normal_instance = Reach(vectors, words)
 
-        normal_instance = Reach(vectors, words)
+    assert auto_instance.items == normal_instance.items
+    assert np.allclose(auto_instance.vectors, normal_instance.vectors)
 
-        self.assertEqual(instance.items, normal_instance.items)
-        self.assertTrue(np.allclose(instance.vectors, normal_instance.vectors))
 
-    def test_valid(self) -> None:
-        words, vectors = self.data()
-        instance = AutoReach(vectors, words)
-
-        self.assertTrue(
-            instance.is_valid_token("hideout", "the hideout was hidden", 10)
-        )
-        self.assertTrue(
-            instance.is_valid_token("hideout", "the hideout, was hidden", 10)
-        )
-        self.assertTrue(
-            instance.is_valid_token("hideout", "the ,hideout, was hidden", 11)
-        )
-        self.assertFalse(
-            instance.is_valid_token("hideout", "the hideouts was hidden", 10)
-        )
-
+@pytest.mark.parametrize(
+    "token,text,index",
+    [
+        ("hideout", "the hideout was hidden", 10),
+        ("hideout", "the hideout, was hidden", 10),
+        ("hideout", "the ,hideout, was hidden", 11),
         # Punctuation tokens are always correct
-        self.assertTrue(instance.is_valid_token(",", "the ,hideouts", 4))
-        self.assertTrue(instance.is_valid_token(",", "the ,,,hideouts", 4))
-
+        (",", "the ,hideouts", 4),
+        (",", "the ,,,hideouts", 4),
         # Punctuation is allowed in tokens
-        self.assertTrue(
-            instance.is_valid_token("hide-out", "the hide-out was hidden", 11)
-        )
-        self.assertTrue(
-            instance.is_valid_token("etc.", "we like this and that,etc....", 25)
-        )
+        ("hide-out", "the hide-out was hidden", 11),
+        ("etc.", "we like this and that,etc....", 25),
+    ],
+)
+def test_valid(auto_instance: AutoReach, token: str, text: str, index: int) -> None:
+    assert auto_instance.is_valid_token(token, text, index)
 
-    def test_lower(self) -> None:
-        words, vectors = self.data()
-        instance = AutoReach(vectors, words, lowercase=False)
-        self.assertFalse(instance.lowercase)
 
-        instance = AutoReach(vectors, words, lowercase=True)
-        self.assertTrue(instance.lowercase)
+def test_invalid(auto_instance: AutoReach) -> None:
+    assert not auto_instance.is_valid_token("hideout", "the hideouts was hidden", 10)
 
-        instance = AutoReach(vectors, words, lowercase="auto")
-        self.assertTrue(instance.lowercase)
 
-        words[0] = words[0].title()  # type: ignore
-        instance = AutoReach(vectors, words, lowercase="auto")
-        self.assertFalse(instance.lowercase)
+def test_lower(words: List[Hashable], vectors: np.ndarray) -> None:
+    instance = AutoReach(vectors, words, lowercase=False)
+    assert not instance.lowercase
 
-    def test_bow(self) -> None:
-        words, vectors = self.data()
-        instance = AutoReach(vectors, words)
+    instance = AutoReach(vectors, words, lowercase=True)
+    assert instance.lowercase
 
-        result = instance.bow(
-            "leonardo, raphael, and the other turtles were in their hideout"
-        )
-        self.assertEqual(len(result), 3)
-        self.assertEqual(result, [1, 2, 5])
+    instance = AutoReach(vectors, words, lowercase="auto")
+    assert instance.lowercase
 
-    def test_vectorize(self) -> None:
-        words, vectors = self.data()
-        instance = AutoReach(vectors, words)
+    words[0] = words[0].title()  # type: ignore
+    instance = AutoReach(vectors, words, lowercase="auto")
+    assert not instance.lowercase
 
-        result = instance.bow(
-            "leonardo, raphael, and the other turtles were in their hideout"
-        )
 
-        vecs = instance.vectors[result]
-        vecs2 = instance.vectorize(
-            "leonardo, raphael, and the other turtles were in their hideout"
-        )
+def test_bow(auto_instance: AutoReach) -> None:
+    result = auto_instance.bow(
+        "leonardo, raphael, and the other turtles were in their hideout"
+    )
+    assert result == [1, 2, 5]
 
-        self.assertTrue(np.allclose(vecs, vecs2))
+
+def test_vectorize(auto_instance: AutoReach) -> None:
+    text = "leonardo, raphael, and the other turtles were in their hideout"
+    vecs = auto_instance.vectors[auto_instance.bow(text)]
+    vecs2 = auto_instance.vectorize(text)
+
+    assert np.allclose(vecs, vecs2)
