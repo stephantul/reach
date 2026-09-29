@@ -52,7 +52,7 @@ auto = ["pyahocorasick"]
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "I001", "I002"]
+select = ["E", "F", "B", "I001", "I002", "UP"]
 
 [tool.mypy]
 disallow_untyped_defs = true

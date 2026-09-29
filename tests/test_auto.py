@@ -1,4 +1,4 @@
-from typing import Hashable, List
+from collections.abc import Hashable
 
 import numpy as np
 import pytest
@@ -9,12 +9,12 @@ from reach import AutoReach, Reach  # noqa: E402
 
 
 @pytest.fixture
-def auto_instance(words: List[Hashable], vectors: np.ndarray) -> AutoReach:
+def auto_instance(words: list[Hashable], vectors: np.ndarray) -> AutoReach:
     return AutoReach(vectors, words)
 
 
 def test_load(
-    words: List[Hashable], vectors: np.ndarray, auto_instance: AutoReach
+    words: list[Hashable], vectors: np.ndarray, auto_instance: AutoReach
 ) -> None:
     assert len(auto_instance.automaton) == len(words)
 
@@ -46,7 +46,7 @@ def test_invalid(auto_instance: AutoReach) -> None:
     assert not auto_instance.is_valid_token("hideout", "the hideouts was hidden", 10)
 
 
-def test_lower(words: List[Hashable], vectors: np.ndarray) -> None:
+def test_lower(words: list[Hashable], vectors: np.ndarray) -> None:
     instance = AutoReach(vectors, words, lowercase=False)
     assert not instance.lowercase
 

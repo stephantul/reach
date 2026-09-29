@@ -1,4 +1,4 @@
-from typing import Hashable, List
+from collections.abc import Hashable
 
 import numpy as np
 import pytest
@@ -6,7 +6,7 @@ import pytest
 from reach import Reach
 
 
-def test_init(words: List[Hashable], vectors: np.ndarray, instance: Reach) -> None:
+def test_init(words: list[Hashable], vectors: np.ndarray, instance: Reach) -> None:
     assert len(instance) == 6
     assert instance.size == 50
     assert np.allclose(instance.vectors, vectors)
@@ -20,7 +20,7 @@ def test_init(words: List[Hashable], vectors: np.ndarray, instance: Reach) -> No
     assert np.allclose(instance_2.vectors, instance.vectors)
 
 
-def test_init_mismatched_lengths(words: List[Hashable], vectors: np.ndarray) -> None:
+def test_init_mismatched_lengths(words: list[Hashable], vectors: np.ndarray) -> None:
     with pytest.raises(ValueError):
         Reach(vectors[:5], words)
 
@@ -28,18 +28,18 @@ def test_init_mismatched_lengths(words: List[Hashable], vectors: np.ndarray) -> 
         Reach(vectors, words[:5])
 
 
-def test_init_unordered_items(words: List[Hashable], vectors: np.ndarray) -> None:
+def test_init_unordered_items(words: list[Hashable], vectors: np.ndarray) -> None:
     with pytest.raises(ValueError):
         # Need to ignore type to trick mypy
         Reach(vectors, set(words))  # type: ignore
 
 
-def test_init_name(words: List[Hashable], vectors: np.ndarray) -> None:
+def test_init_name(words: list[Hashable], vectors: np.ndarray) -> None:
     instance = Reach(vectors, words, name="sensei")
     assert instance.name == "sensei"
 
 
-def test_init_unk_index(words: List[Hashable], vectors: np.ndarray) -> None:
+def test_init_unk_index(words: list[Hashable], vectors: np.ndarray) -> None:
     instance = Reach(vectors, words, unk_index=1)
     assert instance.unk_index == 1
     assert list(instance.sorted_items) == words
@@ -61,7 +61,7 @@ def test_init_vectors_no_norm(instance: Reach) -> None:
     assert instance.vectors is not instance.norm_vectors
 
 
-def test_init_vectors_norm(words: List[Hashable], vectors: np.ndarray) -> None:
+def test_init_vectors_norm(words: list[Hashable], vectors: np.ndarray) -> None:
     r = Reach(Reach.normalize(vectors), words)
     assert not hasattr(r, "_norm_vectors")
     # Initialize norm vectors

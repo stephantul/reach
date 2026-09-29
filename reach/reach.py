@@ -4,36 +4,27 @@ from __future__ import annotations
 
 import json
 import logging
-from io import TextIOWrapper, open
+from collections.abc import Hashable, Iterable, Iterator
+from io import TextIOWrapper
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    Generator,
-    Hashable,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Any, TypeAlias
 
 import numpy as np
 from tqdm import tqdm
 
-Dtype = Union[str, np.dtype]
-File = Union[Path, TextIOWrapper]
-PathLike = Union[str, Path]
-Matrix = Union[np.ndarray, List[np.ndarray]]
-SimilarityItem = List[Tuple[Hashable, float]]
-SimilarityResult = List[SimilarityItem]
-Tokens = Iterable[Hashable]
+Dtype: TypeAlias = str | np.dtype
+File: TypeAlias = Path | TextIOWrapper
+PathLike: TypeAlias = str | Path
+Matrix: TypeAlias = np.ndarray | list[np.ndarray]
+SimilarityItem: TypeAlias = list[tuple[Hashable, float]]
+SimilarityResult: TypeAlias = list[SimilarityItem]
+Tokens: TypeAlias = Iterable[Hashable]
 
 
 logger = logging.getLogger(__name__)
 
 
-class Reach(object):
+class Reach:
     """
     Work with vector representations of items.
 
@@ -72,9 +63,9 @@ class Reach(object):
     def __init__(
         self,
         vectors: Matrix,
-        items: List[Hashable],
+        items: list[Hashable],
         name: str = "",
-        unk_index: Optional[int] = None,
+        unk_index: int | None = None,
     ) -> None:
         if len(items) != len(vectors):
             raise ValueError(
@@ -89,8 +80,8 @@ class Reach(object):
                 "order."
             )
 
-        self._items: Dict[Hashable, int] = {w: idx for idx, w in enumerate(items)}
-        self._indices: Dict[int, Hashable] = {idx: w for w, idx in self.items.items()}
+        self._items: dict[Hashable, int] = {w: idx for idx, w in enumerate(items)}
+        self._indices: dict[int, Hashable] = {idx: w for w, idx in self.items.items()}
         self.vectors = np.asarray(vectors)
         self.unk_index = unk_index
         self.name = name
@@ -100,12 +91,12 @@ class Reach(object):
         return len(self.items)
 
     @property
-    def items(self) -> Dict[Hashable, int]:
+    def items(self) -> dict[Hashable, int]:
         """A mapping from item ids to their indices."""
         return self._items
 
     @property
-    def indices(self) -> Dict[int, Hashable]:
+    def indices(self) -> dict[int, Hashable]:
         """A mapping from integers to item indices."""
         return self._indices
 
@@ -168,11 +159,11 @@ class Reach(object):
     @classmethod
     def load(
         cls,
-        vector_file: Union[File, str],
-        wordlist: Optional[Tuple[str, ...]] = None,
-        num_to_load: Optional[int] = None,
-        truncate_embeddings: Optional[int] = None,
-        unk_word: Optional[str] = None,
+        vector_file: File | str,
+        wordlist: tuple[str, ...] | None = None,
+        num_to_load: int | None = None,
+        truncate_embeddings: int | None = None,
+        unk_word: str | None = None,
         sep: str = " ",
         recover_from_errors: bool = False,
         desired_dtype: Dtype = "float32",
@@ -273,13 +264,13 @@ class Reach(object):
     @staticmethod
     def _load(
         file_handle: TextIOWrapper,
-        wordlist: Optional[Tuple[str, ...]],
-        num_to_load: Optional[int],
-        truncate_embeddings: Optional[int],
+        wordlist: tuple[str, ...] | None,
+        num_to_load: int | None,
+        truncate_embeddings: int | None,
         sep: str,
         recover_from_errors: bool,
         desired_dtype: Dtype,
-    ) -> Tuple[np.ndarray, List[str]]:
+    ) -> tuple[np.ndarray, list[str]]:
         """Load a matrix and wordlist from an opened .vec file."""
         vectors = []
         addedwords = set()
@@ -454,7 +445,7 @@ class Reach(object):
             return np.zeros(self.size)
 
     def mean_pool_corpus(
-        self, corpus: List[Tokens], remove_oov: bool = False, safeguard: bool = True
+        self, corpus: list[Tokens], remove_oov: bool = False, safeguard: bool = True
     ) -> np.ndarray:
         """
         Mean pool a list of list of tokens.
@@ -496,7 +487,7 @@ class Reach(object):
 
         return np.stack(out)
 
-    def bow(self, tokens: Tokens, remove_oov: bool = False) -> List[int]:
+    def bow(self, tokens: Tokens, remove_oov: bool = False) -> list[int]:
         """
         Create a bow representation of a list of tokens.
 
@@ -544,8 +535,8 @@ class Reach(object):
         return out
 
     def transform(
-        self, corpus: List[Tokens], remove_oov: bool = False, norm: bool = False
-    ) -> List[np.ndarray]:
+        self, corpus: list[Tokens], remove_oov: bool = False, norm: bool = False
+    ) -> list[np.ndarray]:
         """
         Transform a corpus by repeated calls to vectorize, defined above.
 
@@ -753,7 +744,7 @@ class Reach(object):
         batch_size: int,
         threshold: float,
         show_progressbar: bool,
-    ) -> Generator[SimilarityItem, None, None]:
+    ) -> Iterator[SimilarityItem]:
         """Batched cosine similarity."""
         for i in tqdm(range(0, len(vectors), batch_size), disable=not show_progressbar):
             batch = vectors[i : i + batch_size]
@@ -769,7 +760,7 @@ class Reach(object):
         batch_size: int,
         num: int,
         show_progressbar: bool,
-    ) -> Generator[SimilarityItem, None, None]:
+    ) -> Iterator[SimilarityItem]:
         """Batched cosine similarity."""
         if num < 1:
             raise ValueError("num should be >= 1, is now {num}")
@@ -794,9 +785,7 @@ class Reach(object):
                 ]
 
     @staticmethod
-    def normalize(
-        vectors: np.ndarray, norms: Optional[np.ndarray] = None
-    ) -> np.ndarray:
+    def normalize(vectors: np.ndarray, norms: np.ndarray | None = None) -> np.ndarray:
         """
         Normalize a matrix of row vectors to unit length.
 
@@ -1041,6 +1030,6 @@ class Reach(object):
         return cls(vectors, words, unk_index=unk_index, name=name)
 
 
-def normalize(vectors: np.ndarray, norms: Optional[np.ndarray] = None) -> np.ndarray:
+def normalize(vectors: np.ndarray, norms: np.ndarray | None = None) -> np.ndarray:
     """Normalize an array to unit length."""
     return Reach.normalize(vectors, norms)

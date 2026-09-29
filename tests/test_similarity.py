@@ -1,5 +1,5 @@
+from collections.abc import Hashable
 from itertools import combinations
-from typing import Hashable, List
 
 import numpy as np
 
@@ -54,7 +54,7 @@ def test_similarity(instance: Reach) -> None:
         assert np.isclose(sim, cosine(instance[w1], instance[w2]))
 
 
-def test_correct_item_gets_deleted(words: List[Hashable], instance: Reach) -> None:
+def test_correct_item_gets_deleted(words: list[Hashable], instance: Reach) -> None:
     for word, result in zip(words, instance.most_similar(words), strict=True):
         result_itemset = set(x[0] for x in result)
         assert set(words) - {word} == result_itemset
@@ -65,27 +65,27 @@ def test_ranking(instance: Reach) -> None:
     argsorted_matrix = np.flip(np.argsort(sim_matrix, axis=1), axis=1)[:, 1:]
 
     for idx, w in enumerate(instance.items):
-        similar_words: List[Hashable] = [
+        similar_words: list[Hashable] = [
             x[0] for x in instance.most_similar([w], num=10)[0]
         ]
         indices = [instance.items[word] for word in similar_words]
         assert indices == argsorted_matrix[idx].tolist()
 
 
-def test_item_similarity(words: List[Hashable], instance: Reach) -> None:
+def test_item_similarity(words: list[Hashable], instance: Reach) -> None:
     sims = instance.norm_vectors @ instance.norm_vectors.T
     sims_2 = instance.similarity(words, words)
     assert np.allclose(sims, sims_2)
 
 
-def test_batch_single(words: List[Hashable], instance: Reach) -> None:
+def test_batch_single(words: list[Hashable], instance: Reach) -> None:
     result = [[x[0] for x in sublist] for sublist in instance.most_similar(words)]
     other_result = [[x[0] for x in instance.most_similar([word])[0]] for word in words]
 
     assert result == other_result
 
 
-def test_batch_single_threshold(words: List[Hashable], instance: Reach) -> None:
+def test_batch_single_threshold(words: list[Hashable], instance: Reach) -> None:
     result = [
         [x[0] for x in sublist] for sublist in instance.threshold(words, threshold=0.0)
     ]
@@ -102,7 +102,7 @@ def test_threshold(instance: Reach) -> None:
 
     threshold = 0.0
     for index, w in enumerate(instance.items):
-        above_threshold_1: List[Hashable] = [
+        above_threshold_1: list[Hashable] = [
             x[0] for x in instance.threshold([w], threshold=threshold)[0]
         ]
         indices_1 = [instance.items[word] for word in above_threshold_1]
@@ -113,7 +113,7 @@ def test_threshold(instance: Reach) -> None:
 
     threshold = 0.9
     for w in instance.items:
-        above_threshold_2: List[Hashable] = [
+        above_threshold_2: list[Hashable] = [
             x[0] for x in instance.threshold([w], threshold=threshold)[0]
         ]
         indices_2 = [instance.items[word] for word in above_threshold_2]
@@ -121,7 +121,7 @@ def test_threshold(instance: Reach) -> None:
 
 
 def test_nearest_neighbor(
-    words: List[Hashable], vectors: np.ndarray, instance: Reach
+    words: list[Hashable], vectors: np.ndarray, instance: Reach
 ) -> None:
     for word, vector in zip(words, vectors, strict=True):
         nn1 = instance.nearest_neighbor(vector)[0][1:]
@@ -130,7 +130,7 @@ def test_nearest_neighbor(
 
 
 def test_nearest_neighbor_threshold(
-    words: List[Hashable], vectors: np.ndarray, instance: Reach
+    words: list[Hashable], vectors: np.ndarray, instance: Reach
 ) -> None:
     threshold = 0.0
     for word, vector in zip(words, vectors, strict=True):
@@ -140,7 +140,7 @@ def test_nearest_neighbor_threshold(
 
 
 def test_neighbor_similarity(
-    words: List[Hashable], vectors: np.ndarray, instance: Reach
+    words: list[Hashable], vectors: np.ndarray, instance: Reach
 ) -> None:
     result = instance.norm_vectors[0] @ instance.norm_vectors[1:].T
     result2 = instance.vector_similarity(vectors[0], words[1:])

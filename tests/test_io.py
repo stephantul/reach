@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Tuple
 
 import numpy as np
 import pytest
@@ -26,7 +26,7 @@ def test_wordlist(embedding_file: Path) -> None:
 
 
 def test_duplicate(
-    embedding_lines: Callable[..., List[str]],
+    embedding_lines: Callable[..., list[str]],
     write_embedding_file: Callable[..., Path],
 ) -> None:
     lines = embedding_lines()
@@ -67,7 +67,7 @@ def test_limit(embedding_file: Path) -> None:
 
 @pytest.mark.parametrize("header", [True, False])
 def test_sep(
-    embedding_lines: Callable[..., List[str]],
+    embedding_lines: Callable[..., list[str]],
     write_embedding_file: Callable[..., Path],
     header: bool,
 ) -> None:
@@ -80,11 +80,11 @@ def test_sep(
     [(False, 0, (1, 4)), (False, 1, (5, 5)), (True, 1, (5, 5))],
 )
 def test_corrupted_file(
-    embedding_lines: Callable[..., List[str]],
+    embedding_lines: Callable[..., list[str]],
     write_embedding_file: Callable[..., Path],
     header: bool,
     corrupted_line: int,
-    expected_shape: Tuple[int, int],
+    expected_shape: tuple[int, int],
 ) -> None:
     lines = embedding_lines(header=header)
     lines[corrupted_line] = " ".join(lines[corrupted_line].split(" ")[:-1])
@@ -101,7 +101,7 @@ def test_corrupted_file(
 
 @pytest.mark.parametrize("header", [True, False])
 def test_load_from_file(
-    embedding_lines: Callable[..., List[str]],
+    embedding_lines: Callable[..., list[str]],
     write_embedding_file: Callable[..., Path],
     header: bool,
 ) -> None:
