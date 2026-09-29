@@ -118,3 +118,15 @@ def test_mean_pool_safeguard_keeps_dtype(
 
     vec = instance.mean_pool(["dog"], safeguard=False)
     assert vec.dtype == np.float32
+
+
+def test_vectorize_numpy_tokens(instance: Reach) -> None:
+    vec = instance.vectorize(np.array(["donatello", "raphael"]))
+
+    assert np.allclose(vec, instance.vectors[[0, 2]])
+
+
+def test_vectorize_empty_generator(instance: Reach) -> None:
+    empty: list[str] = []
+    with pytest.raises(ValueError, match="empty"):
+        instance.vectorize(token for token in empty)

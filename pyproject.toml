@@ -2,7 +2,8 @@
 name = "reach"
 description = "A light-weight package for working with pre-trained word embeddings"
 readme = { file = "README.md", content-type = "text/markdown" }
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [{ name = "Stéphan Tulkens", email = "stephantul@gmail.com" }]
 keywords = ["word vectors", "natural language processing", "embeddings"]
@@ -16,7 +17,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["setuptools>=66.1"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

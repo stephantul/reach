@@ -7,10 +7,13 @@ import logging
 from collections.abc import Hashable, Iterable, Iterator
 from itertools import chain
 from pathlib import Path
-from typing import TextIO, TypeAlias
+from typing import TYPE_CHECKING, TextIO, TypeAlias
 
 import numpy as np
 from tqdm import tqdm
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 Dtype: TypeAlias = str | np.dtype
 PathLike: TypeAlias = str | Path
@@ -55,8 +58,9 @@ class Reach:
     Raises
     ------
     ValueError
-        If the number of items and vectors differ, if items is a set or dict,
-        if items contains duplicates, or if unk_index is out of range.
+        If there are no items, if the number of items and vectors differ, if
+        items is a set or dict, if items contains duplicates, or if unk_index
+        is out of range.
 
     """
 
@@ -67,6 +71,8 @@ class Reach:
         name: str = "",
         unk_index: int | None = None,
     ) -> None:
+        if len(items) == 0:
+            raise ValueError("A Reach instance needs at least one item.")
         if len(items) != len(vectors):
             raise ValueError(
                 "Your vector space and list of items are not the same length: "
@@ -187,7 +193,7 @@ class Reach:
         sep: str = " ",
         recover_from_errors: bool = False,
         desired_dtype: Dtype = "float32",
-    ) -> Reach:
+    ) -> Self:
         r"""
         Read a file in word2vec .txt format.
 
@@ -406,12 +412,13 @@ class Reach:
             If tokens is empty, or if all tokens are removed as OOV.
 
         """
-        if not tokens:
+        token_list = tokens if isinstance(tokens, str) else list(tokens)
+        if not token_list:
             raise ValueError("You supplied an empty list.")
-        index = self.bow(tokens, remove_oov=remove_oov)
+        index = self.bow(token_list, remove_oov=remove_oov)
         if not index:
             raise ValueError(
-                f"You supplied a list with only OOV tokens: {tokens}, "
+                f"You supplied a list with only OOV tokens: {token_list}, "
                 "which then got removed. Set remove_oov to False,"
                 " or filter your sentences to remove any in which"
                 " all items are OOV."
@@ -895,7 +902,13 @@ class Reach:
         )
         return self._sim(items_1_matrix, items_2_matrix)
 
-    def intersect(self, itemlist: Tokens) -> Reach:
+    def _new(
+        self, vectors: np.ndarray, items: list[Hashable], unk_index: int | None
+    ) -> Self:
+        """Create a new instance of the same class, with the same settings."""
+        return type(self)(vectors, items, name=self.name, unk_index=unk_index)
+
+    def intersect(self, itemlist: Tokens) -> Self:
         """
         Intersect a reach instance with a list of items.
 
@@ -911,9 +924,16 @@ class Reach:
         r : Reach
             A new Reach instance containing only the intersecting items.
 
+        Raises
+        ------
+        ValueError
+            If none of the items are in the Reach instance.
+
         """
         # Remove duplicates and oov words.
         itemlist = list(set(self.items) & set(itemlist))
+        if not itemlist:
+            raise ValueError("None of the items are in the Reach instance.")
         # Get indices of intersection.
         indices = sorted([self.items[item] for item in itemlist])
         unk_index: int | None = None
@@ -921,9 +941,9 @@ class Reach:
             unk_index = indices.index(self.unk_index)
         vectors = self.vectors[indices]
         itemlist = [self.indices[index] for index in indices]
-        return type(self)(vectors, itemlist, name=self.name, unk_index=unk_index)
+        return self._new(vectors, itemlist, unk_index)
 
-    def union(self, other: Reach, check: bool = True) -> Reach:
+    def union(self, other: Reach, check: bool = True) -> Self:
         """
         Union a reach with another reach.
 
@@ -972,7 +992,7 @@ class Reach:
         else:
             unk_index = None
 
-        return type(self)(vectors, union, name=self.name, unk_index=unk_index)
+        return self._new(vectors, union, unk_index)
 
     def save(self, path: PathLike, write_header: bool = True) -> None:
         """
@@ -1032,7 +1052,7 @@ class Reach:
     @classmethod
     def load_fast_format(
         cls, filename: PathLike, desired_dtype: Dtype = "float32"
-    ) -> Reach:
+    ) -> Self:
         """
         Load a reach instance in fast format.
 

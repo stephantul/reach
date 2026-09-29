@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 import re
 from collections.abc import Hashable
 from string import punctuation
+from typing import TYPE_CHECKING
+
+import numpy as np
 
 try:
     from ahocorasick import Automaton
@@ -11,6 +16,9 @@ except ImportError as exc:
     ) from exc
 
 from reach.reach import Matrix, Reach, Tokens
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 PUNCT = set(punctuation)
 SPACE = set("\n \t")
@@ -82,6 +90,18 @@ class AutoReach(Reach):
                 [item == item.lower() for item in self.items]  # type: ignore
             )
         self._lowercase = bool(lowercase)
+
+    def _new(
+        self, vectors: np.ndarray, items: list[Hashable], unk_index: int | None
+    ) -> Self:
+        """Create a new instance of the same class, with the same settings."""
+        return type(self)(
+            vectors,
+            items,
+            lowercase=self.lowercase,
+            name=self.name,
+            unk_index=unk_index,
+        )
 
     @property
     def lowercase(self) -> bool:

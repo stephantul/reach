@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Hashable
 
 import numpy as np
@@ -170,3 +171,28 @@ def test_normalize_int_with_zero_row() -> None:
     result = Reach.normalize(np.array([[3, 4], [0, 0]]))
 
     assert np.allclose(result, [[0.6, 0.8], [0.0, 0.0]])
+
+
+def test_autoreach_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(sys.modules, "ahocorasick", None)
+    monkeypatch.delitem(sys.modules, "reach.autoreach", raising=False)
+
+    with pytest.raises(ImportError, match=r"reach\[auto\]"):
+        from reach import AutoReach  # noqa: F401
+
+
+def test_unknown_attribute() -> None:
+    import reach
+
+    with pytest.raises(AttributeError, match="no attribute 'Foo'"):
+        reach.Foo  # noqa: B018
+
+
+def test_init_empty() -> None:
+    with pytest.raises(ValueError, match="at least one item"):
+        Reach(np.zeros((0, 5)), [])
+
+
+def test_intersect_no_overlap(instance: Reach) -> None:
+    with pytest.raises(ValueError, match="None of the items"):
+        instance.intersect(["shredder"])

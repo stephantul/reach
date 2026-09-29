@@ -1,6 +1,5 @@
 # reach
 
-[![Documentation Status](https://readthedocs.org/projects/reach/badge/?version=latest)](https://reach.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/reach.svg)](https://badge.fury.io/py/reach)
 [![Downloads](https://pepy.tech/badge/reach)](https://pepy.tech/project/reach)
 
@@ -15,11 +14,6 @@ vectorization and bow approaches know how to deal with OOV words, removing
 these problems from your code.
 
 `reach` also includes nearest neighbor calculation for arbitrary vectors.
-
-## [Documentation](https://reach.readthedocs.io/en/latest/)
-
-* [API reference](https://reach.readthedocs.io/en/latest/source/api.html)
-* Tutorial coming soon (see below for an example)
 
 ## Installation
 

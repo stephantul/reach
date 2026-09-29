@@ -85,3 +85,14 @@ def test_bow_falls_back_to_shorter_match() -> None:
 
 def test_intersect_keeps_type(auto_instance: AutoReach) -> None:
     assert type(auto_instance.intersect(["leonardo"])) is AutoReach
+
+
+@pytest.mark.parametrize("lowercase", [True, False])
+def test_intersect_union_keep_lowercase(
+    words: list[Hashable], vectors: np.ndarray, lowercase: bool
+) -> None:
+    instance = AutoReach(vectors[:3], words[:3], lowercase=lowercase)
+    other = AutoReach(vectors[2:], words[2:], lowercase=lowercase)
+
+    assert instance.intersect(["leonardo"]).lowercase is lowercase
+    assert instance.union(other).lowercase is lowercase
