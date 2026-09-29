@@ -1,10 +1,9 @@
-clean:
-
+VERBOSITY=
 
 venv:
 	uv venv
 
-install: venv
+install:
 	uv sync --all-extras
 	uv run pre-commit install
 
@@ -13,3 +12,6 @@ fix:
 
 test:
 	uv run pytest --cov=reach --cov-report=term-missing
+
+test-verbose:
+	make test VERBOSITY="-vvv"

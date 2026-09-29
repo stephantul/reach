@@ -1,276 +1,224 @@
-import json
-import unittest
+from collections.abc import Callable
+from io import StringIO
 from pathlib import Path
-from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import numpy as np
+import pytest
 
 from reach import Reach
 
 
-class TestLoad(unittest.TestCase):
-    def lines(self, header: bool = True, n: int = 6, dim: int = 5, sep: str = " ") -> str:
-        """Lines fixture."""
-        lines = []
-        words = ["skateboard", "pizza", "splinter", "technodrome", "krang", "shredder"]
-        if header:
-            lines.append(f"{n}{sep}{dim}")
-        for idx, word in enumerate(words):
-            lines.append(f"{word}{sep}{sep.join([str(idx)] * dim)}")
-        return "\n".join(lines)
+def test_truncation(embedding_file: Path) -> None:
+    instance = Reach.load(embedding_file, truncate_embeddings=2)
+    assert instance.size == 2
+    assert len(instance) == 6
 
-    def test_truncation(self) -> None:
-        """Test truncation."""
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines()
-            tempfile.write(lines)
-            tempfile.seek(0)
-            instance = Reach.load_word2vec_format(tempfile.name, truncate_embeddings=2)
-            self.assertEqual(instance.size, 2)
-            self.assertEqual(len(instance), 6)
+    instance = Reach.load(embedding_file, truncate_embeddings=100)
+    assert instance.size == 5
+    assert len(instance) == 6
 
-            instance = Reach.load_word2vec_format(tempfile.name, truncate_embeddings=100)
-            self.assertEqual(instance.size, 5)
-            self.assertEqual(len(instance), 6)
 
-    def test_wordlist(self) -> None:
-        """Test that adding a wordlist works."""
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines()
-            tempfile.write(lines)
-            tempfile.seek(0)
-            instance = Reach.load_word2vec_format(tempfile.name, wordlist=("shredder", "krang"))
-            self.assertEqual(len(instance), 2)
+def test_wordlist(embedding_file: Path) -> None:
+    instance = Reach.load(embedding_file, wordlist=("shredder", "krang"))
+    assert len(instance) == 2
 
-            with self.assertRaises(ValueError):
-                instance = Reach.load_word2vec_format(tempfile.name, wordlist=("doggo",))
+    with pytest.raises(ValueError):
+        Reach.load(embedding_file, wordlist=("doggo",))
 
-    def test_duplicate(self) -> None:
-        """Test duplicates in a wordlist."""
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines()
-            lines_split = lines.split("\n")
-            lines_split[3] = lines_split[2]
-            tempfile.write("\n".join(lines_split))
-            tempfile.seek(0)
 
-            with self.assertRaises(ValueError):
-                Reach.load_word2vec_format(tempfile.name, recover_from_errors=False)
-            instance = Reach.load_word2vec_format(tempfile.name, recover_from_errors=True)
-            self.assertEqual(len(instance), 5)
+def test_duplicate(
+    embedding_lines: Callable[..., list[str]],
+    write_embedding_file: Callable[..., Path],
+) -> None:
+    lines = embedding_lines()
+    lines[3] = lines[2]
+    path = write_embedding_file(lines)
 
-    def test_unk(self) -> None:
-        """Test whether the unk token exists."""
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines()
-            tempfile.write(lines)
-            tempfile.seek(0)
-            instance = Reach.load_word2vec_format(tempfile.name, unk_token=None)
-            self.assertEqual(instance._unk_index, None)
+    with pytest.raises(ValueError):
+        Reach.load(path, recover_from_errors=False)
+    instance = Reach.load(path, recover_from_errors=True)
+    assert len(instance) == 5
 
-            desired_dtype = "float32"
-            instance = Reach.load_word2vec_format(tempfile.name, unk_token="[UNK]", desired_dtype=desired_dtype)
-            self.assertEqual(instance._unk_index, 6)
-            self.assertEqual(instance.items["[UNK]"], instance._unk_index)
-            self.assertEqual(instance.vectors.dtype, desired_dtype)
 
-            instance = Reach.load_word2vec_format(tempfile.name, unk_token="splinter")
-            self.assertEqual(instance._unk_index, 2)
-            self.assertEqual(instance.items["splinter"], instance._unk_index)
+def test_unk(embedding_file: Path) -> None:
+    instance = Reach.load(embedding_file, unk_word=None)
+    assert instance.unk_index is None
 
-    def test_limit(self) -> None:
-        """Tests whether limit during loading works."""
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines()
-            tempfile.write(lines)
-            tempfile.seek(0)
-            instance = Reach.load_word2vec_format(tempfile.name, num_to_load=2)
-            self.assertEqual(len(instance), 2)
+    desired_dtype = "float32"
+    instance = Reach.load(embedding_file, unk_word="[UNK]", desired_dtype=desired_dtype)
+    assert instance.unk_index == 0
+    assert instance.items["[UNK]"] == instance.unk_index
+    assert instance.vectors.dtype == desired_dtype
 
-            with self.assertRaises(ValueError):
-                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=-1)
+    instance = Reach.load(embedding_file, unk_word="splinter")
+    assert instance.unk_index == 2
+    assert instance.items["splinter"] == instance.unk_index
 
-            instance = Reach.load_word2vec_format(tempfile.name, num_to_load=10000)
-            self.assertEqual(len(instance), 6)
 
-    def test_sep(self) -> None:
-        """Test different seps."""
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines(sep=",")
-            tempfile.write(lines)
-            tempfile.seek(0)
-            Reach.load_word2vec_format(tempfile.name, sep=",")
+def test_limit(embedding_file: Path) -> None:
+    instance = Reach.load(embedding_file, num_to_load=2)
+    assert len(instance) == 2
 
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines(False, sep=",")
-            tempfile.write(lines)
-            tempfile.seek(0)
-            Reach.load_word2vec_format(tempfile.name, sep=",")
+    with pytest.raises(ValueError):
+        Reach.load(embedding_file, num_to_load=-1)
 
-    def test_corrupted_file(self) -> None:
-        """Test whether a corrupted file loads."""
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines(header=False)
-            lines_split = lines.split("\n")
-            lines_split[0] = " ".join(lines_split[0].split(" ")[:-1])
-            tempfile.write("\n".join(lines_split))
+    instance = Reach.load(embedding_file, num_to_load=10000)
+    assert len(instance) == 6
 
-            tempfile.seek(0)
-            with self.assertRaises(ValueError):
-                instance = Reach.load_word2vec_format(tempfile.name)
 
-            instance = Reach.load_word2vec_format(tempfile.name, recover_from_errors=True)
-            self.assertEqual(instance.size, 4)
-            self.assertEqual(len(instance.items), 1)
-            self.assertEqual(instance.vectors.shape, (1, 4))
+@pytest.mark.parametrize("header", [True, False])
+def test_sep(
+    embedding_lines: Callable[..., list[str]],
+    write_embedding_file: Callable[..., Path],
+    header: bool,
+) -> None:
+    path = write_embedding_file(embedding_lines(header=header, sep=","))
+    Reach.load(path, sep=",")
 
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines(header=False)
-            lines_split = lines.split("\n")
-            lines_split[1] = " ".join(lines_split[1].split(" ")[:-1])
-            tempfile.write("\n".join(lines_split))
 
-            tempfile.seek(0)
-            with self.assertRaises(ValueError):
-                instance = Reach.load_word2vec_format(tempfile.name)
+def test_sep_size_error_message(
+    embedding_lines: Callable[..., list[str]],
+    write_embedding_file: Callable[..., Path],
+) -> None:
+    lines = embedding_lines(sep=",")
+    lines[1] = lines[1].rsplit(",", 1)[0]
+    path = write_embedding_file(lines)
 
-            instance = Reach.load_word2vec_format(tempfile.name, recover_from_errors=True)
-            self.assertEqual(instance.size, 5)
-            self.assertEqual(len(instance.items), 5)
-            self.assertEqual(instance.vectors.shape, (5, 5))
+    with pytest.raises(ValueError, match="size is 4, expected 5"):
+        Reach.load(path, sep=",")
 
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines(header=True)
-            lines_split = lines.split("\n")
-            lines_split[1] = " ".join(lines_split[1].split(" ")[:-1])
-            tempfile.write("\n".join(lines_split))
 
-            tempfile.seek(0)
-            with self.assertRaises(ValueError):
-                instance = Reach.load_word2vec_format(tempfile.name)
+@pytest.mark.parametrize(
+    "header,corrupted_line,expected_shape",
+    [(False, 0, (1, 4)), (False, 1, (5, 5)), (True, 1, (5, 5))],
+)
+def test_corrupted_file(
+    embedding_lines: Callable[..., list[str]],
+    write_embedding_file: Callable[..., Path],
+    header: bool,
+    corrupted_line: int,
+    expected_shape: tuple[int, int],
+) -> None:
+    lines = embedding_lines(header=header)
+    lines[corrupted_line] = " ".join(lines[corrupted_line].split(" ")[:-1])
+    path = write_embedding_file(lines)
 
-            instance = Reach.load_word2vec_format(tempfile.name, recover_from_errors=True)
-            self.assertEqual(instance.size, 5)
-            self.assertEqual(len(instance.items), 5)
-            self.assertEqual(instance.vectors.shape, (5, 5))
+    with pytest.raises(ValueError):
+        Reach.load(path)
 
-    def test_load_from_file_without_header(self) -> None:
-        """Test whether we can load files without headers."""
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines(header=False)
-            tempfile.write(lines)
-            tempfile.seek(0)
+    instance = Reach.load(path, recover_from_errors=True)
+    assert instance.size == expected_shape[1]
+    assert len(instance.items) == expected_shape[0]
+    assert instance.vectors.shape == expected_shape
 
-            instance = Reach.load_word2vec_format(tempfile.name)
-            self.assertEqual(instance.size, 5)
-            self.assertEqual(len(instance.items), 6)
-            self.assertEqual(instance.vectors.shape, (6, 5))
 
-            for index, vector in enumerate(instance.vectors):
-                self.assertTrue(np.all(vector == index))
-            for item, index in instance.items.items():
-                self.assertEqual(instance.indices[index], item)
+@pytest.mark.parametrize("header", [True, False])
+def test_load_from_file(
+    embedding_lines: Callable[..., list[str]],
+    write_embedding_file: Callable[..., Path],
+    header: bool,
+) -> None:
+    path = write_embedding_file(embedding_lines(header=header))
 
-            instance = Reach.load_word2vec_format(tempfile.name, num_to_load=3)
-            self.assertEqual(instance.size, 5)
-            self.assertEqual(len(instance.items), 3)
-            self.assertEqual(instance.vectors.shape, (3, 5))
+    instance = Reach.load(str(path))
+    assert instance.size == 5
+    assert len(instance.items) == 6
+    assert instance.vectors.shape == (6, 5)
 
-            instance = Reach.load_word2vec_format(tempfile.name)
-            with open(tempfile.name) as f:
-                instance_from_file = Reach.load_word2vec_format(f)
-            self.assertEqual(instance.size, instance_from_file.size)
-            self.assertTrue(np.all(instance.vectors == instance_from_file.vectors))
-            self.assertEqual(instance.name, instance_from_file.name)
+    for index, vector in enumerate(instance.vectors):
+        assert np.all(vector == index)
+    for item, index in instance.items.items():
+        assert instance.indices[index] == item
 
-            instance_from_path = Reach.load_word2vec_format(Path(tempfile.name))
-            self.assertEqual(instance.size, instance_from_path.size)
-            self.assertTrue(np.all(instance.vectors == instance_from_path.vectors))
-            self.assertEqual(instance.name, instance_from_path.name)
+    instance = Reach.load(str(path), num_to_load=3)
+    assert instance.size == 5
+    assert len(instance.items) == 3
+    assert instance.vectors.shape == (3, 5)
 
-            with self.assertRaises(ValueError):
-                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=0)
+    instance = Reach.load(str(path))
+    with open(path) as f:
+        instance_from_file = Reach.load(f)
+    assert instance.size == instance_from_file.size
+    assert np.all(instance.vectors == instance_from_file.vectors)
+    assert instance.name == instance_from_file.name
 
-            with self.assertRaises(ValueError):
-                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=-1)
+    instance_from_path = Reach.load(path)
+    assert instance.size == instance_from_path.size
+    assert np.all(instance.vectors == instance_from_path.vectors)
+    assert instance.name == instance_from_path.name
 
-    def test_load_from_file_with_header(self) -> None:
-        """Test whether we can load without headers."""
-        with NamedTemporaryFile(mode="w+") as tempfile:
-            lines = self.lines()
-            tempfile.write(lines)
-            tempfile.seek(0)
+    with pytest.raises(ValueError):
+        Reach.load(path, num_to_load=0)
 
-            instance = Reach.load_word2vec_format(tempfile.name)
-            self.assertEqual(instance.size, 5)
-            self.assertEqual(len(instance.items), 6)
-            self.assertEqual(instance.vectors.shape, (6, 5))
+    with pytest.raises(ValueError):
+        Reach.load(path, num_to_load=-1)
 
-            for index, vector in enumerate(instance.vectors):
-                self.assertTrue(np.all(vector == index))
-            for item, index in instance.items.items():
-                self.assertEqual(instance.indices[index], item)
 
-            instance = Reach.load_word2vec_format(tempfile.name, num_to_load=3)
-            self.assertEqual(instance.size, 5)
-            self.assertEqual(len(instance.items), 3)
-            self.assertEqual(instance.vectors.shape, (3, 5))
+def test_save_load_fast_format(embedding_file: Path, tmp_path: Path) -> None:
+    instance = Reach.load(embedding_file)
+    fast_path = tmp_path / "fast"
+    instance.save_fast_format(fast_path)
+    instance_2 = Reach.load_fast_format(fast_path)
 
-            instance = Reach.load_word2vec_format(tempfile.name)
-            with open(tempfile.name) as f:
-                instance_from_file = Reach.load_word2vec_format(f)
-            self.assertEqual(instance.size, instance_from_file.size)
-            self.assertTrue(np.all(instance.vectors == instance_from_file.vectors))
-            self.assertEqual(instance.name, instance_from_file.name)
+    assert instance.size == instance_2.size
+    assert len(instance) == len(instance_2)
+    assert np.allclose(instance.vectors, instance_2.vectors)
+    assert instance.unk_index == instance_2.unk_index
+    assert instance.name == instance_2.name
 
-            instance_from_path = Reach.load_word2vec_format(Path(tempfile.name))
-            self.assertEqual(instance.size, instance_from_path.size)
-            self.assertTrue(np.all(instance.vectors == instance_from_path.vectors))
-            self.assertEqual(instance.name, instance_from_path.name)
 
-            with self.assertRaises(ValueError):
-                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=0)
+def test_save_load(embedding_file: Path, tmp_path: Path) -> None:
+    instance = Reach.load(embedding_file)
+    save_path = tmp_path / "saved" / embedding_file.name
+    save_path.parent.mkdir()
+    instance.save(save_path)
+    instance_2 = Reach.load(save_path)
 
-            with self.assertRaises(ValueError):
-                instance = Reach.load_word2vec_format(tempfile.name, num_to_load=-1)
+    assert instance.size == instance_2.size
+    assert len(instance) == len(instance_2)
+    assert np.allclose(instance.vectors, instance_2.vectors)
+    assert instance.unk_index == instance_2.unk_index
+    assert instance.name == instance_2.name
 
-    def test_save_load_fast_format(self) -> None:
-        """Test the saving and loading of the fast format."""
-        with TemporaryDirectory() as temp_folder:
-            lines = self.lines()
 
-            temp_folder_path = Path(temp_folder)
+def test_load_from_stringio(embedding_lines: Callable[..., list[str]]) -> None:
+    instance = Reach.load(StringIO("\n".join(embedding_lines())))
 
-            temp_file_name = temp_folder_path / "test.vec"
-            with open(temp_file_name, "w") as tempfile:
-                tempfile.write(lines)
-                tempfile.seek(0)
+    assert len(instance) == 6
+    assert instance.name == ""
 
-            instance = Reach.load_word2vec_format(temp_file_name)
-            fast_format_file = temp_folder_path / "temp.reach"
-            instance.save(fast_format_file)
-            instance_2 = Reach.load(fast_format_file)
 
-            self.assertEqual(instance.size, instance_2.size)
-            self.assertEqual(len(instance), len(instance_2))
-            self.assertTrue(np.allclose(instance.vectors, instance_2.vectors))
-            self.assertEqual(instance._unk_index, instance_2._unk_index)
-            self.assertEqual(instance.name, instance_2.name)
+def test_load_non_numeric_value(
+    embedding_lines: Callable[..., list[str]],
+    write_embedding_file: Callable[..., Path],
+) -> None:
+    lines = embedding_lines()
+    lines[2] = "pizza 1 1 x 1 1"
+    path = write_embedding_file(lines)
 
-    def test_save_load(self) -> None:
-        """Test regular save and load."""
-        with NamedTemporaryFile("w+") as tempfile:
-            lines = self.lines()
-            tempfile.write(lines)
-            tempfile.seek(0)
+    with pytest.raises(ValueError, match="Could not parse"):
+        Reach.load(path)
 
-            instance = Reach.load_word2vec_format(tempfile.name)
-            # We know for sure that this writeable.
-            instance.save_word2vec_format(tempfile.name)
-            instance_2 = Reach.load_word2vec_format(tempfile.name)
+    instance = Reach.load(path, recover_from_errors=True)
+    assert "pizza" not in instance
+    assert len(instance) == 5
 
-            self.assertEqual(instance.size, instance_2.size)
-            self.assertEqual(len(instance), len(instance_2))
-            self.assertTrue(np.allclose(instance.vectors, instance_2.vectors))
-            self.assertEqual(instance._unk_index, instance_2._unk_index)
-            self.assertEqual(instance.name, instance_2.name)
+
+def test_save_rejects_items_with_spaces(tmp_path: Path) -> None:
+    instance = Reach(np.ones((2, 3)), ["new york", "amsterdam"])
+
+    with pytest.raises(ValueError, match="space or newline"):
+        instance.save(tmp_path / "vectors.txt")
+
+
+def test_save_load_unicode(tmp_path: Path) -> None:
+    instance = Reach(np.ones((2, 3)), ["café", "日本"])
+    path = tmp_path / "vectors.txt"
+    instance.save(path)
+
+    assert list(Reach.load(path).sorted_items) == ["café", "日本"]
+
+
+def test_negative_truncation(embedding_file: Path) -> None:
+    with pytest.raises(ValueError, match="truncate_embeddings"):
+        Reach.load(embedding_file, truncate_embeddings=-1)

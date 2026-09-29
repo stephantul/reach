@@ -1,76 +1,77 @@
 [project]
 name = "reach"
-description = "Load your vector embeddings"
-readme = "README.md"
-dynamic = ["version"]
+description = "A light-weight package for working with pre-trained word embeddings"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+authors = [{ name = "Stéphan Tulkens", email = "stephantul@gmail.com" }]
+keywords = ["word vectors", "natural language processing", "embeddings"]
+dynamic = ["version"]
+
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 
 dependencies = [
     "numpy",
-    "tqdm"
-
+    "tqdm",
 ]
 
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm>=8"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
-
-[project.optional-dependencies]
-dev = [
-    "black",
-    "ipython",
-    "mypy",
-    "pre-commit",
-    "pytest",
-    "pytest-coverage",
-    "ruff",
-]
-
-[tool.ruff]
-exclude = [".venv/"]
-line-length = 120
-target-version = "py310"
-
-[tool.ruff.lint]
-select = [
-    # Annotations: Enforce type annotations
-    "ANN",
-    # Pydocstyle: Enforce docstrings
-    "D",
-    # Isort: Enforce import order
-    "I",
-    # Numpy: Enforce numpy style
-    "NPY",
-    # Print: Forbid print statements
-    "T20",
-]
-ignore = [
-    # Allow self and cls to be untyped, and allow Any type
-    "ANN101", "ANN102", "ANN401",
-    # Pydocstyle ignores
-    "D100", "D101", "D104", "D203", "D212", "D401",
-    # Allow use of f-strings in logging
-    "G004"
-]
-
-[tool.pydoclint]
-style = "sphinx"
-exclude = "test_"
-allow-init-docstring = true
-arg-type-hints-in-docstring = false
-check-return-types = false
-require-return-section-when-returning-nothing = false
-
-[tool.mypy]
-python_version = "3.10"
-warn_unused_configs = true
-ignore_missing_imports = true
 
 [tool.setuptools]
 packages = ["reach"]
 
-[tool.setuptools_scm]
-# can be empty if no extra settings are needed, presence enables setuptools_scm
+[project.optional-dependencies]
+dev = [
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+auto = ["pyahocorasick"]
+
+[project.urls]
+"Source Code" = "https://github.com/stephantul/reach"
+"Issue Tracker" = "https://github.com/stephantul/reach/issues"
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I001", "I002", "UP"]
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+follow_imports = "normal"
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["tqdm.*", "ahocorasick.*"]
+ignore_missing_imports = true
 
 [tool.setuptools.dynamic]
-version = {attr = "reach.version.__version__"}
+version = { attr = "reach.__version__" }
+
+[tool.pydoclint]
+style = "numpy"
+exclude = "tests"
+allow-init-docstring = false
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-class-attributes = false

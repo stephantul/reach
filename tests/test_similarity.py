@@ -1,225 +1,206 @@
-import logging
-import unittest
+from collections.abc import Hashable
 from itertools import combinations
-from typing import cast
 
 import numpy as np
-import numpy.typing as npt
+import pytest
 
 from reach import Reach, normalize
 
-logger = logging.getLogger(__name__)
+
+def cosine(x: np.ndarray, y: np.ndarray) -> float:
+    norm_x = np.linalg.norm(x)
+    norm_y = np.linalg.norm(y)
+    if norm_x == 0 or norm_y == 0:
+        return 0.0
+    x = x / norm_x
+    y = y / norm_y
+
+    return (x * y).sum()
 
 
-class TestSimilarity(unittest.TestCase):
-    def data(self) -> tuple[list[str], np.ndarray]:
-        """Dummy data."""
-        words: list[str] = [
-            "donatello",
-            "leonardo",
-            "raphael",
-            "michelangelo",
-            "splinter",
-            "hideout",
+def test_normalize_vector() -> None:
+    x = np.arange(10)
+    norm_x = Reach.normalize(x)
+    norm_x_np = x / np.linalg.norm(x)
+
+    assert np.allclose(norm_x, norm_x_np)
+    assert np.allclose(norm_x, normalize(x))
+
+
+def test_normalize_norm() -> None:
+    x = np.arange(10).reshape(2, 5)
+    result = Reach.normalize(x)
+    result_2 = Reach.normalize(x, np.linalg.norm(x, axis=1))
+
+    assert np.allclose(result, result_2)
+
+
+def test_normalize_array() -> None:
+    norms = []
+    X = []
+    for idx in range(10):
+        x = np.full(shape=(10,), fill_value=idx, dtype="float32")
+        X.append(x)
+        norms.append(normalize(x))
+
+    assert np.allclose(normalize(np.stack(X)), np.stack(norms))
+
+
+def test_similarity(instance: Reach) -> None:
+    sim = instance.similarity(["leonardo"], ["leonardo"])
+    assert np.isclose(sim, 1.0)
+
+    for w1, w2 in combinations(instance.items, r=2):
+        sim = instance.similarity([w1], [w2])[0][0]
+        assert np.isclose(sim, cosine(instance[w1], instance[w2]))
+
+
+def test_correct_item_gets_deleted(words: list[Hashable], instance: Reach) -> None:
+    for word, result in zip(words, instance.most_similar(words), strict=True):
+        result_itemset = set(x[0] for x in result)
+        assert set(words) - {word} == result_itemset
+
+
+def test_ranking(instance: Reach) -> None:
+    sim_matrix = instance.norm_vectors @ instance.norm_vectors.T
+    argsorted_matrix = np.flip(np.argsort(sim_matrix, axis=1), axis=1)[:, 1:]
+
+    for idx, w in enumerate(instance.items):
+        similar_words: list[Hashable] = [
+            x[0] for x in instance.most_similar([w], num=10)[0]
         ]
-        random_generator = np.random.RandomState(seed=44)
-        vectors = random_generator.standard_normal((6, 50))
+        indices = [instance.items[word] for word in similar_words]
+        assert indices == argsorted_matrix[idx].tolist()
 
-        return words, vectors
 
-    @staticmethod
-    def cosine(x: np.ndarray, y: np.ndarray) -> float:
-        """Compute the cosine."""
-        norm_x = np.linalg.norm(x)
-        norm_y = np.linalg.norm(y)
-        if norm_x == 0 or norm_y == 0:
-            return 0.0
-        x = x / norm_x
-        y = y / norm_y
+def test_item_similarity(words: list[Hashable], instance: Reach) -> None:
+    sims = instance.norm_vectors @ instance.norm_vectors.T
+    sims_2 = instance.similarity(words, words)
+    assert np.allclose(sims, sims_2)
 
-        return (x * y).sum()
 
-    def test_normalize_vector(self) -> None:
-        """Test normalizing a vector."""
-        x = np.arange(10)
-        norm_x = Reach.normalize(x)
-        norm_x_np = x / np.linalg.norm(x)
+def test_batch_single(words: list[Hashable], instance: Reach) -> None:
+    result = [[x[0] for x in sublist] for sublist in instance.most_similar(words)]
+    other_result = [[x[0] for x in instance.most_similar([word])[0]] for word in words]
 
-        self.assertTrue(np.allclose(norm_x, norm_x_np))
-        self.assertTrue(np.allclose(norm_x, normalize(x)))
+    assert result == other_result
 
-    def test_normalize_norm(self) -> None:
-        """Test normalizing and comparing with norm."""
-        x = np.arange(10)
-        result = Reach.normalize(x)
-        result_2 = Reach.normalize(x, cast(npt.NDArray, np.linalg.norm(x)))
 
-        self.assertTrue(np.allclose(result, result_2))
+def test_batch_single_threshold(words: list[Hashable], instance: Reach) -> None:
+    result = [
+        [x[0] for x in sublist] for sublist in instance.threshold(words, threshold=0.0)
+    ]
+    other_result = [
+        [x[0] for x in instance.threshold([word], threshold=0.0)[0]] for word in words
+    ]
 
-    def test_normalize_array(self) -> None:
-        """Test normalizing an array."""
-        norms = []
-        X = []
-        for idx in range(10):
-            x = np.full(shape=(10,), fill_value=idx, dtype="float32")
-            X.append(x)
-            norms.append(normalize(x))
+    assert result == other_result
 
-        norms = np.stack(norms)
 
-        self.assertTrue(np.allclose(normalize(np.stack(X)), norms))
+def test_threshold(instance: Reach) -> None:
+    sim_matrix = instance.norm_vectors @ instance.norm_vectors.T
+    sim_matrix[np.diag_indices_from(sim_matrix)] = -100
 
-    def test_similarity(self) -> None:
-        """Test computing the similarity."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
+    threshold = 0.0
+    for index, w in enumerate(instance.items):
+        above_threshold_1: list[Hashable] = [
+            x[0] for x in instance.threshold([w], threshold=threshold)[0]
+        ]
+        indices_1 = [instance.items[word] for word in above_threshold_1]
+        sorted_items = sorted(
+            enumerate(sim_matrix[index]), key=lambda x: x[1], reverse=True
+        )
+        assert indices_1 == [idx for idx, x in sorted_items if x > threshold]
 
-        sim = instance.similarity(["leonardo"], ["leonardo"])
-        self.assertTrue(np.isclose(sim, 1.0))
+    threshold = 0.9
+    for w in instance.items:
+        above_threshold_2: list[Hashable] = [
+            x[0] for x in instance.threshold([w], threshold=threshold)[0]
+        ]
+        indices_2 = [instance.items[word] for word in above_threshold_2]
+        assert indices_2 == []
 
-        for w1, w2 in combinations(instance.items, r=2):
-            sim = instance.similarity([w1], [w2])[0][0]
-            self.assertTrue(np.isclose(sim, self.cosine(instance[w1], instance[w2])))
 
-    def test_correct_item_gets_deleted(self) -> None:
-        """Test whether the correct items get deleted."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
+def test_nearest_neighbor(
+    words: list[Hashable], vectors: np.ndarray, instance: Reach
+) -> None:
+    for word, vector in zip(words, vectors, strict=True):
+        nn1 = instance.nearest_neighbor(vector)[0][1:]
+        nn2 = instance.most_similar([word])[0]
+        assert nn1 == nn2
 
-        vectors = np.ones_like(vectors)
-        for word, result in zip(words, instance.most_similar(words)):
-            result_itemset = set(x[0] for x in result)
-            self.assertEqual(set(words) - {word}, result_itemset)
 
-    def test_ranking(self) -> None:
-        """Test whether the ranking is correct."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
+def test_nearest_neighbor_threshold(
+    words: list[Hashable], vectors: np.ndarray, instance: Reach
+) -> None:
+    threshold = 0.0
+    for word, vector in zip(words, vectors, strict=True):
+        nn1 = instance.nearest_neighbor_threshold(vector, threshold=threshold)[0][1:]
+        nn2 = instance.threshold([word], threshold=threshold)[0]
+        assert nn1 == nn2
 
-        sim_matrix = instance.norm_vectors @ instance.norm_vectors.T
-        argsorted_matrix = np.flip(np.argsort(sim_matrix, axis=1), axis=1)[:, 1:]
 
-        for idx, w in enumerate(instance.items):
-            similar_words: list[str] = [x[0] for x in instance.most_similar([w], num=10)[0]]
-            indices = [instance.items[word] for word in similar_words]
-            self.assertEqual(indices, argsorted_matrix[idx].tolist())
+def test_neighbor_similarity(
+    words: list[Hashable], vectors: np.ndarray, instance: Reach
+) -> None:
+    result = instance.norm_vectors[0] @ instance.norm_vectors[1:].T
+    result2 = instance.vector_similarity(vectors[0], words[1:])
 
-    def test_item_similarity(self) -> None:
-        """Test the item similarity."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
+    assert np.allclose(result, result2)
 
-        sims = instance.norm_vectors @ instance.norm_vectors.T
-        sims_2 = instance.similarity(words, words)
-        self.assertTrue(np.allclose(sims, sims_2))
+    result = instance.norm_vectors[0] @ instance.norm_vectors[1].T
+    result2 = instance.vector_similarity(vectors[0], [words[1]])
 
-    def test_batch_single(self) -> None:
-        """Test batching for a single item."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
+    assert result == result2
 
-        # Test if batch is equal to single.
-        result = [[x[0] for x in sublist] for sublist in instance.most_similar(words)]
-        other_result = []
-        for word in words:
-            other_result.append([x[0] for x in instance.most_similar([word])[0]])
 
-        self.assertEqual(result, other_result)
+def test_most_similar_num_larger_than_vocab_batched(
+    words: list[Hashable], instance: Reach
+) -> None:
+    result = instance.most_similar(words, num=10, batch_size=2)
 
-    def test_batch_single_threshold(self) -> None:
-        """Test thresholding for a single item."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
+    assert [len(x) for x in result] == [5] * 6
 
-        result = [[x[0] for x in sublist] for sublist in instance.threshold(words, threshold=0.0)]
-        other_result = []
-        for word in words:
-            other_result.append([x[0] for x in instance.threshold([word], threshold=0.0)[0]])
 
-        self.assertEqual(result, other_result)
+def test_nearest_neighbor_num_larger_than_vocab_batched(
+    vectors: np.ndarray, instance: Reach
+) -> None:
+    result = instance.nearest_neighbor(vectors, num=10, batch_size=2)
 
-    def test_threshold(self) -> None:
-        """Test the thresholding in general."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
+    assert [len(x) for x in result] == [6] * 6
 
-        sim_matrix = instance.norm_vectors @ instance.norm_vectors.T
-        sim_matrix[np.diag_indices_from(sim_matrix)] = -100
 
-        threshold = 0.0
-        for index, w in enumerate(instance.items):
-            above_threshold_1: list[str] = [x[0] for x in instance.threshold([w], threshold=threshold)[0]]
-            indices_1 = [instance.items[word] for word in above_threshold_1]
-            sorted_items = sorted(enumerate(sim_matrix[index]), key=lambda x: x[1], reverse=True)
-            self.assertEqual(indices_1, [idx for idx, x in sorted_items if x > threshold])
+def test_most_similar_returns_num_items(
+    words: list[Hashable], vectors: np.ndarray
+) -> None:
+    instance = Reach(np.vstack([vectors, np.zeros(50)]), [*words, "zero"])
 
-        threshold = 0.9
-        for w in instance.items:
-            above_threshold_2: list[str] = [x[0] for x in instance.threshold([w], threshold=threshold)[0]]
-            indices_2 = [instance.items[word] for word in above_threshold_2]
-            self.assertEqual(indices_2, [])
+    assert len(instance.most_similar(["zero"], num=2)[0]) == 2
 
-    def test_nearest_neighbor(self) -> None:
-        """Test the nearest neighbor calculation."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
 
-        for word, vector in zip(words, vectors):
-            nn1 = instance.nearest_neighbor(vector)[0][1:]
-            nn2 = instance.most_similar([word])[0]
-            self.assertEqual(nn1, nn2)
+def test_num_error_message(instance: Reach, vectors: np.ndarray) -> None:
+    with pytest.raises(ValueError, match="is now 0"):
+        instance.nearest_neighbor(vectors[0], num=0)
 
-    def test_nearest_neighbor_threshold(self) -> None:
-        """Test the nearest neighbor function."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
 
-        threshold = 0.0
-        for word, vector in zip(words, vectors):
-            nn1 = instance.nearest_neighbor_threshold(vector, threshold=threshold)[0][1:]
-            nn2 = instance.threshold([word], threshold=threshold)[0]
-            self.assertEqual(nn1, nn2)
+def test_similarities_are_floats(instance: Reach, vectors: np.ndarray) -> None:
+    assert type(instance.most_similar(["leonardo"])[0][0][1]) is float
+    assert type(instance.threshold(["leonardo"], threshold=-1)[0][0][1]) is float
+    assert type(instance.nearest_neighbor(vectors[0])[0][0][1]) is float
 
-    def test_neighbor_similarity(self) -> None:
-        """Test neighborhood similarity."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
 
-        result = instance.norm_vectors[0] @ instance.norm_vectors[1:].T
-        result2 = instance.vector_similarity(vectors[0], words[1:])
+@pytest.mark.parametrize("num", [0, -1])
+def test_most_similar_invalid_num(instance: Reach, num: int) -> None:
+    with pytest.raises(ValueError, match=f"is now {num}"):
+        instance.most_similar(["leonardo"], num=num)
 
-        self.assertTrue(np.allclose(result, result2))
 
-        result = instance.norm_vectors[0] @ instance.norm_vectors[1].T
-        result2 = instance.vector_similarity(vectors[0], [words[1]])
+def test_generator_items(words: list[Hashable], instance: Reach) -> None:
+    assert instance.most_similar(w for w in words) == instance.most_similar(words)
+    assert instance.threshold(w for w in words) == instance.threshold(words)
 
-        self.assertEqual(result, result2)
 
-    def test_nearest_neighbor_indices(self) -> None:
-        """Test the nearest_neighbor_indices function."""
-        words, vectors = self.data()
-        instance = Reach(vectors, words)
-
-        # Set a high threshold to test that no indices are returned
-        threshold = 0.99
-        for word, vector in zip(words, vectors):
-            indices = list(instance.nearest_neighbor_indices(np.array([vector]), threshold=threshold))[0]
-            # Exclude self-similarity
-            indices = indices[indices != instance.items[word]]
-            self.assertEqual(indices.size, 0)
-
-        # Set a low threshold to ensure some indices are returned
-        threshold = 0.0
-        for word, vector in zip(words, vectors):
-            indices = list(instance.nearest_neighbor_indices(np.array([vector]), threshold=threshold))[0]
-
-            # Get the actual indices
-            similarities = instance.norm_vectors @ vector
-            expected_indices = np.flatnonzero(similarities > threshold)
-
-            # Convert both to sets for comparison
-            indices_set = set(indices)
-            expected_indices_set = set(expected_indices)
-
-            # Assert that the filtered indices match the expected indices
-            self.assertEqual(indices_set, expected_indices_set)
+def test_empty_items(words: list[Hashable], instance: Reach) -> None:
+    assert instance.most_similar([]) == []
+    assert instance.threshold([]) == []
+    assert instance.similarity([], words).shape == (0, 6)
